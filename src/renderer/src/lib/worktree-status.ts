@@ -18,6 +18,7 @@ export type WorktreeStatus =
   | 'monitoring'
   | 'permission'
   | 'interrupted'
+  | 'rate-limited'
   | 'done'
   | 'inactive'
 
@@ -36,6 +37,7 @@ const STATUS_LABELS: Record<WorktreeStatus, string> = {
   monitoring: 'Monitoring background tasks',
   permission: 'Needs permission',
   interrupted: 'Interrupted',
+  'rate-limited': 'Rate-limited',
   done: 'Done',
   inactive: 'Inactive'
 }
@@ -184,6 +186,7 @@ export function resolveWorktreeStatus(args: {
   hasInterrupted?: boolean
   hasLiveDone: boolean
   hasRetainedDone: boolean
+  hasRateLimited?: boolean
 }): WorktreeStatus {
   const heuristic = getWorktreeStatus(
     args.tabs,
@@ -210,6 +213,12 @@ export function resolveWorktreeStatus(args: {
   }
   if (args.hasLiveMonitoring || heuristic === 'monitoring') {
     return 'monitoring'
+  }
+  // Why: a rate-limited (paused) agent outranks the passive done/active/inactive
+  // states so the card advertises that Orca is waiting to auto-resume it, but
+  // stays below permission/working which are more user-actionable / live.
+  if (args.hasRateLimited) {
+    return 'rate-limited'
   }
   // Terminal outcomes follow live states, but an interrupted outcome must not collapse into success.
   if (args.hasInterrupted) {

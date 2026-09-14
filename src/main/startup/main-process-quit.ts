@@ -78,6 +78,10 @@ function installBeforeQuitHandler(): void {
     state.unsubscribeAgentAwakeStatusChanges = null
     state.agentAwakeService?.dispose()
     state.agentAwakeService = null
+    state.unsubscribeUsageLimitStall?.()
+    state.unsubscribeUsageLimitStall = null
+    state.agentAutoResumeService?.dispose()
+    state.agentAutoResumeService = null
     // Why wait but not uninstall: a renderer beforeunload can still veto this
     // quit, and tearing the sweep down here would kill it for the rest of the
     // session. `isQuitting` already vetoes new attempts; will-quit does the teardown.
