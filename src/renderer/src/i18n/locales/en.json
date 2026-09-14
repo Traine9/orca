@@ -2475,6 +2475,10 @@
       "workspacePortBrowserOpen": {
         "systemBrowserHint": "{{shortcut}}+click to open in the system browser",
         "tooltip": "{{label}}. {{hint}}"
+      },
+      "auto-resume": {
+        "rate-limited-resumes": "Rate-limited · resumes {{time}}",
+        "rate-limited-waiting": "Rate-limited · waiting for reset"
       }
     },
     "hooks": {
@@ -7194,7 +7198,9 @@
           "copyPathOption": "Path",
           "copyNameOption": "Worktree Name",
           "lineageSubmenu": "Parent & Children",
-          "projectGroupSubmenu": "Project Group"
+          "projectGroupSubmenu": "Project Group",
+          "rateLimitWatcher": "Rate limit watcher",
+          "rateLimitWatcherDescription": "Wait for the provider usage limit to reset and resume this workspace's agent automatically."
         },
         "WorktreeList": {
           "7a8b9c0d1e": "Update required",
@@ -19998,6 +20004,16 @@
       },
       "NewWorkspaceComposerFooter": {
         "create": "Create"
+      },
+      "status-bar": {
+        "auto-resume": {
+          "agent": "agent",
+          "agents": "agents",
+          "label": "{{n}} paused",
+          "resumes": "resumes {{time}}",
+          "tooltip": "{{n}} {{noun}} paused · {{detail}}",
+          "waiting": "waiting for reset"
+        }
       }
     },
     "i18n": {
@@ -21443,7 +21459,8 @@
         "SortableTabContextMenu": {
           "switchToTerminalView": "Continue with Terminal Agent",
           "switchToChatView": "Continue in Chat UI",
-          "allowAutoClose": "Allow Auto-Close"
+          "allowAutoClose": "Allow Auto-Close",
+          "rateLimitWatcher": "Rate limit watcher"
         },
         "BrowserTab": {
           "closeOthers": "Close Others",
@@ -23641,6 +23658,7 @@
       "failed": "Failed",
       "interrupted": "Interrupted",
       "unconfirmed": "Couldn’t confirm",
+      "rateLimited": "Rate-limited",
       "done": "Done",
       "inactive": "Inactive",
       "unreadLabel": "{{status}} · Unread"

@@ -111,6 +111,7 @@ export function crewStatusGroup(status: WorktreeStatus): CrewStatusGroup {
     case 'inactive':
     case 'interrupted':
     case 'unconfirmed':
+    case 'rate-limited':
       return 'idle'
   }
 }

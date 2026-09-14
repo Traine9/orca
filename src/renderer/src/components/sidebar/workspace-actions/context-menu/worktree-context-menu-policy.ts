@@ -3,6 +3,7 @@ import type { Repo } from '../../../../../../shared/repo-types'
 import { isGitRepoKind } from '../../../../../../shared/repo-kind'
 import '@/lib/workspace/creation/new-workspace-composer-repo'
 import { getNewWorkspaceDialogEligibleRepos } from '../../../../../../shared/new-workspace-dialog-repo'
+import type { TerminalTab } from '../../../../../../shared/workspace-layout/terminal-tab-types'
 import type {
   WorkspaceStatus,
   WorkspaceStatusDefinition,
@@ -26,6 +27,8 @@ export const PARENT_PICKER_EXIT_ANIMATION_MS = 200
 
 // Closed menus reuse empty identities so teardown map churn cannot wake their subscriptions.
 export const EMPTY_TABS_BY_WORKTREE: AppState['tabsByWorktree'] = {}
+export const EMPTY_RATE_LIMIT_WATCHER_TAB_IDS: string[] = []
+export const EMPTY_WORKSPACE_TABS: TerminalTab[] = []
 export const EMPTY_PTY_IDS_BY_TAB_ID: AppState['ptyIdsByTabId'] = {}
 export const EMPTY_BROWSER_TABS_BY_WORKTREE: AppState['browserTabsByWorktree'] = {}
 export const EMPTY_UNIFIED_TABS_BY_WORKTREE: AppState['unifiedTabsByWorktree'] = {}

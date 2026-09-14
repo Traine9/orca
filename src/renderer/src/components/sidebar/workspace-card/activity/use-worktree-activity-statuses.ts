@@ -12,6 +12,7 @@ import {
 } from './worktree-card-status-inputs'
 import { selectWorktreeAgentActivitySummary } from './worktree-agent-activity-summary'
 import { selectWorktreeActivityPtyIds } from './use-worktree-activity-status'
+import { selectHasRateLimitedForWorktree } from '@/store/slices/auto-resume'
 
 export function selectWorktreeActivityStatuses(
   statusInputs: AppState,
@@ -54,7 +55,8 @@ export function selectWorktreeActivityStatuses(
         hasUnconfirmed,
         hasLiveDone,
         hasRetainedDone,
-        hasRetainedFailed
+        hasRetainedFailed,
+        hasRateLimited: selectHasRateLimitedForWorktree(statusInputs, worktreeId)
       })
     )
   }

@@ -1,5 +1,6 @@
 import { Pencil, Pin, PinOff, SquareTerminal, Timer, X } from 'lucide-react'
 import {
+  ContextMenuCheckboxItem,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuShortcut,
@@ -7,6 +8,7 @@ import {
 } from '@/components/ui/context-menu'
 import type { TerminalTab } from '../../../../shared/workspace-layout/terminal-tab-types'
 import { useAppStore } from '../../store'
+import { selectIsRateLimitWatcherArmed } from '../../store/slices/rate-limit-watcher'
 import { formatShortcutLabel, useOptionalShortcutLabel } from '@/hooks/useShortcutLabel'
 import { translate } from '@/i18n/i18n'
 import { useTranslate } from '@/i18n/use-translate'
@@ -135,6 +137,12 @@ export function SortableTabContextMenu({
 }: SortableTabContextMenuProps): React.JSX.Element {
   const t = useTranslate()
   const keybindings = useAppStore((state) => state.keybindings)
+  // Gated on `open` because one of these menus is mounted per tab; an ungated
+  // selector would resubscribe the whole tab strip on every store change.
+  const watcherArmed = useAppStore((state) =>
+    open ? selectIsRateLimitWatcherArmed(state, tab.id) : false
+  )
+  const toggleRateLimitWatcher = useAppStore((state) => state.toggleRateLimitWatcher)
   const splitRightShortcut = formatShortcutLabel('terminal.splitRight', keybindings)
   const splitDownShortcut = formatShortcutLabel('terminal.splitDown', keybindings)
 
@@ -203,6 +211,15 @@ export function SortableTabContextMenu({
         </ContextMenuItem>
       ) : null}
       <CopyTabIdMenuItem menuKind="context" unifiedTabId={unifiedTabId} />
+      <ContextMenuSeparator />
+      <ContextMenuCheckboxItem
+        checked={watcherArmed}
+        onCheckedChange={(next) => {
+          void toggleRateLimitWatcher(tab.id, next)
+        }}
+      >
+        {t('components.tab.bar.SortableTabContextMenu.rateLimitWatcher', 'Rate limit watcher')}
+      </ContextMenuCheckboxItem>
       <ContextMenuSeparator />
       <ContextMenuItem onSelect={() => !isPinned && onClose(tab.id)} disabled={isPinned}>
         <X className="size-3.5" />

@@ -54,6 +54,9 @@ const STATUS_LABELS: Record<WorktreeStatus, string> = {
   get unconfirmed() {
     return translate('workspace.activity.unconfirmed', 'Couldn’t confirm')
   },
+  get 'rate-limited'() {
+    return translate('workspace.activity.rateLimited', 'Rate-limited')
+  },
   get done() {
     return translate('workspace.activity.done', 'Done')
   },
@@ -217,6 +220,7 @@ export function resolveWorktreeStatus(args: {
   hasLiveDone: boolean
   hasRetainedDone: boolean
   hasRetainedFailed?: boolean
+  hasRateLimited?: boolean
 }): WorktreeStatus {
   const heuristic = getWorktreeStatus(
     args.tabs,

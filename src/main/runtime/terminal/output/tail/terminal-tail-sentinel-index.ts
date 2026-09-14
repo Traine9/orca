@@ -1,52 +1,111 @@
 import { terminalWaitBlockedSentinelRe } from '../../../agent-state-rules/blocked-text-layer'
 
-/** Cache sentinel positions by immutable tail-array identity to avoid scanning 2,000 retained lines per tick.
- * Weak keys release replaced tails; record the regex too so hot-reloaded rules cannot hide new blockers. */
+// Why its own sentinel: the blocked-prompt sentinel never matches a usage-limit
+// banner or the wait-for-reset menu, so without a prefilter of its own the
+// tail-shape fast path would skip the full scan and usage-limit detection would
+// never run.
+//
+// Each alternative is the cheapest anchor of one pattern in
+// usage-limit-stall-detection.ts, so this is a strict superset of what that
+// module can match. It must NOT be broadened to a bare `limit`: the retained
+// tail is up to 2000 lines, one "delimiter" or "unlimited" anywhere in it would
+// pin every later wait-check to the full 256 KiB rebuild + scan for the rest of
+// the session — exactly the cost the tail-shape fast path exists to avoid.
+export const TERMINAL_USAGE_LIMIT_SENTINEL_RE =
+  /limit\s*to\s*reset|more\s*usage|(?:hit|reach)(?:ing|ed)?\s*your|limit\s*(?:has\s*been\s*)?reached|limit\s*has\s*reset|automatic\s*continue/i
+
+/** Retained-line positions matching each tail sentinel, in ascending order. */
+type TerminalTailSentinelIndex = {
+  blocked: number[]
+  usageLimit: number[]
+}
+
+/**
+ * Which retained tail lines match each tail sentinel, memoized per lines-array
+ * identity.
+ *
+ * Why: `computeTerminalTailWaitState` must prove the ABSENCE of a signal, so it
+ * cannot early-exit and re-tested all 2000 retained lines on every scan (20/s
+ * per streaming PTY) even though only ~20 lines were new. Keyed weakly by the
+ * array so an entry dies with the tail it describes; the tail array is replaced
+ * on every append and never mutated in place, so at most one entry per PTY
+ * stays live. Each entry keeps the sentinel it was scanned with: a rules hot reload swaps it, and
+ * matches found by the old one would hide a blocker only the new one knows.
+ */
 const sentinelMatchesByTailLines = new WeakMap<
   readonly string[],
-  { sentinel: RegExp; matches: number[] }
+  { sentinel: RegExp; matches: TerminalTailSentinelIndex }
 >()
 
 function collectSentinelMatches(
   sentinel: RegExp,
   lines: readonly string[],
   startIndex: number,
-  into: number[]
+  into: TerminalTailSentinelIndex
 ): void {
   for (let index = startIndex; index < lines.length; index += 1) {
-    if (sentinel.test(lines[index]!)) {
-      into.push(index)
+    const line = lines[index]!
+    if (sentinel.test(line)) {
+      into.blocked.push(index)
+    }
+    if (TERMINAL_USAGE_LIMIT_SENTINEL_RE.test(line)) {
+      into.usageLimit.push(index)
     }
   }
 }
 
-/** Count full scans of unseen arrays; constructor-produced tails must already be indexed so tests can detect bypassed carry paths. */
+/**
+ * How many arrays have been full-scanned because they arrived without an index entry.
+ * Every array `appendNormalizedToTailBuffer` produces is registered by `buildCarriedTailLines`,
+ * so this only advances for tails the index has genuinely never seen (a restore seed, a persisted
+ * record, a hand-built array). Tests assert it stays flat across the real append paths, which is
+ * what proves no producer path silently bypasses the constructor.
+ */
 let sentinelFullScanCount = 0
 
 export function getTerminalTailSentinelFullScanCount(): number {
   return sentinelFullScanCount
 }
 
-/** Ascending indices of sentinel-matching lines; full-scans an unseen array. */
-export function getTerminalTailSentinelMatches(lines: readonly string[]): readonly number[] {
+function getTerminalTailSentinelIndex(lines: readonly string[]): TerminalTailSentinelIndex {
   const sentinel = terminalWaitBlockedSentinelRe()
   const cached = sentinelMatchesByTailLines.get(lines)
   if (cached?.sentinel === sentinel) {
     return cached.matches
   }
   sentinelFullScanCount += 1
-  const matches: number[] = []
+  const matches: TerminalTailSentinelIndex = { blocked: [], usageLimit: [] }
   collectSentinelMatches(sentinel, lines, 0, matches)
   sentinelMatchesByTailLines.set(lines, { sentinel, matches })
   return matches
 }
 
-export function tailMayContainBlockedSignal(lines: readonly string[]): boolean {
-  return getTerminalTailSentinelMatches(lines).length > 0
+/** Ascending indices of blocked-sentinel lines; full-scans an unseen array. */
+export function getTerminalTailSentinelMatches(lines: readonly string[]): readonly number[] {
+  return getTerminalTailSentinelIndex(lines).blocked
 }
 
-/** Derive new matches from the exact unchanged carry window; scan only produced rows and drop evicted/rewritten matches.
- * buildCarriedTailLines derives this window and the next array from the same capped bounds. */
+export function tailMayContainBlockedSignal(lines: readonly string[]): boolean {
+  return getTerminalTailSentinelIndex(lines).blocked.length > 0
+}
+
+export function tailMayContainUsageLimitSignal(lines: readonly string[]): boolean {
+  return getTerminalTailSentinelIndex(lines).usageLimit.length > 0
+}
+
+/**
+ * Derive `nextLines`' match index from `previousLines`', testing only the lines
+ * the append actually produced.
+ *
+ * `nextLines[0 … carriedCount)` are the very same strings as
+ * `previousLines[carriedSourceStart … carriedSourceStart + carriedCount)`, and
+ * every later line is newly produced. That is not an assumption a caller has to
+ * uphold by hand: `buildCarriedTailLines` in `terminal-tail-buffer.ts` is the
+ * sole caller, and it derives this window from the same keep bounds it slices
+ * `nextLines` out of, so the window and the array cannot disagree. Matches
+ * outside the carried window are dropped because their lines were evicted or
+ * rewritten, which is exactly what a full scan would conclude.
+ */
 export function carryTerminalTailSentinelMatches(
   previousLines: readonly string[],
   nextLines: readonly string[],
@@ -56,19 +115,35 @@ export function carryTerminalTailSentinelMatches(
   if (nextLines === previousLines) {
     return
   }
-  const matches: number[] = []
+  const matches: TerminalTailSentinelIndex = { blocked: [], usageLimit: [] }
   if (carriedCount > 0) {
+    const previous = getTerminalTailSentinelIndex(previousLines)
     const carriedEnd = carriedSourceStart + carriedCount
-    for (const index of getTerminalTailSentinelMatches(previousLines)) {
-      if (index >= carriedEnd) {
-        break
-      }
-      if (index >= carriedSourceStart) {
-        matches.push(index - carriedSourceStart)
-      }
-    }
+    carrySentinelMatchWindow(previous.blocked, matches.blocked, carriedSourceStart, carriedEnd)
+    carrySentinelMatchWindow(
+      previous.usageLimit,
+      matches.usageLimit,
+      carriedSourceStart,
+      carriedEnd
+    )
   }
   const sentinel = terminalWaitBlockedSentinelRe()
   collectSentinelMatches(sentinel, nextLines, carriedCount, matches)
   sentinelMatchesByTailLines.set(nextLines, { sentinel, matches })
+}
+
+function carrySentinelMatchWindow(
+  previous: readonly number[],
+  into: number[],
+  carriedSourceStart: number,
+  carriedEnd: number
+): void {
+  for (const index of previous) {
+    if (index >= carriedEnd) {
+      break
+    }
+    if (index >= carriedSourceStart) {
+      into.push(index - carriedSourceStart)
+    }
+  }
 }

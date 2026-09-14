@@ -93,6 +93,10 @@ function installBeforeQuitHandler(): void {
     state.unsubscribeAgentAwakeStatusChanges = null
     state.agentAwakeService?.dispose()
     state.agentAwakeService = null
+    state.unsubscribeUsageLimitStall?.()
+    state.unsubscribeUsageLimitStall = null
+    state.agentAutoResumeService?.dispose()
+    state.agentAutoResumeService = null
     // Beforeunload may veto; wait for ref locks now but uninstall only after committed quit. isQuitting already blocks new attempts.
     state.repoMaintenanceShutdown = awaitPackedRefsLockRelease()
     // Delay PTY cleanup until scrollback capture; exit events otherwise unmount the renderer callbacks.

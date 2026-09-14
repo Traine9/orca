@@ -21,7 +21,8 @@ import {
   getOrcadMigrationCatalogState,
   stageOrcadMigrationCatalogDurably
 } from './orcad-migration-catalog-import'
-import { OrcaRuntimeWithResolveExitWaiters } from '../../terminal/wait/terminal-wait-settlements'
+import type { OrcaRuntimeWithResolveExitWaiters } from '../../terminal/wait/terminal-wait-settlements'
+import { OrcaRuntimeWithUsageLimitStall } from '../../orca-runtime-usage-limit-stall'
 import type { RuntimeStore } from '../../construction/runtime-store-contract'
 
 type MigrationStoreKey =
@@ -34,7 +35,7 @@ type MigrationStoreKey =
   | 'getOrcadMigrationCatalogState'
   | 'flushPendingOrThrowAsync'
 
-export abstract class OrcaRuntimeWithMigrationCatalog extends OrcaRuntimeWithResolveExitWaiters {
+export abstract class OrcaRuntimeWithMigrationCatalog extends OrcaRuntimeWithUsageLimitStall {
   async stageOrcadMigrationCatalog(
     manifest: OrcadMigrationManifest,
     options: { signal?: AbortSignal } = {}

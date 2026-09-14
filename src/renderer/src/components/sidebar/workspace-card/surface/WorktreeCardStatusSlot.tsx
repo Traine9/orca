@@ -11,6 +11,7 @@ import type { WorktreeStatus } from '../../../../../../shared/worktree-status-ro
 import '../activity/worktree-card-empty-inputs'
 import { FilledBellIcon } from '../identity/worktree-card-glyphs'
 import { checksLabel } from '../review/workspace-review-check-label'
+import { formatRateLimitedLabel, selectWorktreeRateLimitStatus } from '@/store/slices/auto-resume'
 import StatusIndicator from './StatusIndicator'
 import { useWorktreeActivityStatus } from '../activity/use-worktree-activity-status'
 import { useShallow } from 'zustand/react/shallow'
@@ -138,16 +139,20 @@ export function WorktreeCardStatusSlot({
   const isReviewStale = reviewStale || Boolean(collectionChecks?.stale)
   const status = useWorktreeActivityStatus(worktreeId)
   // One subscription per card: rows mount by the hundreds, and every listener runs on each store write.
-  const { isSleeping, vmRuntime, vmWaking } = useAppStore(
+  const { isSleeping, vmRuntime, vmWaking, rateLimitResumesAt } = useAppStore(
     useShallow((state) => ({
       isSleeping: selectIsSleepingWorktree(state, worktreeId),
       vmRuntime: selectEphemeralVmWorkspaceRuntime(state, worktreeId),
-      vmWaking: selectEphemeralVmWorkspaceWaking(state, worktreeId)
+      vmWaking: selectEphemeralVmWorkspaceWaking(state, worktreeId),
+      rateLimitResumesAt: selectWorktreeRateLimitStatus(state, worktreeId).resumesAt
     }))
   )
   const vmState = vmRuntime ? getEphemeralVmHostState(vmRuntime.status, vmWaking) : null
   const vmFailure = vmRuntime?.failure ?? null
-  const statusLabel = getWorktreeStatusLabel(status) || status
+  const statusLabel =
+    status === 'rate-limited'
+      ? formatRateLimitedLabel(rateLimitResumesAt)
+      : getWorktreeStatusLabel(status) || status
   // Sleeping remains distinct from quiet done/branch/review states; attention keeps its own glyph.
   const canShowSleepingStatus =
     newCardStyle && showStatus && isSleeping && QUIET_REVIEW_REPLACEABLE_STATUSES.has(status)

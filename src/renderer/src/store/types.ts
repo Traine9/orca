@@ -23,6 +23,8 @@ import type {
 } from './slices/usage/usage-provider-slices'
 import type { BrowserSlice } from './slices/browser/browser-slice-contract'
 import type { RateLimitSlice } from './slices/usage/rate-limits'
+import type { AutoResumeSlice } from './slices/auto-resume'
+import type { RateLimitWatcherSlice } from './slices/rate-limit-watcher'
 import type { SshSlice } from './slices/ssh/create-ssh-slice'
 import type { RuntimeEnvironmentSshSlice } from './slices/ssh/runtime-environment-ssh'
 import type { WslHostsSlice } from './slices/wsl/wsl-hosts'
@@ -76,6 +78,8 @@ export type AppState = RepoSlice &
   MuseUsageSlice &
   BrowserSlice &
   RateLimitSlice &
+  AutoResumeSlice &
+  RateLimitWatcherSlice &
   SshSlice &
   RuntimeEnvironmentSshSlice &
   WslHostsSlice &

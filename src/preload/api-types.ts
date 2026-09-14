@@ -11,6 +11,7 @@ import type { HooksApi } from './api/agent-hook-api'
 import type { SkillsApi } from './api/agent-skill-api'
 import type { AgentAwakeApi, AgentStatusApi } from './api/agent-status-api'
 import type {
+  AgentAutoResumeApi,
   ClaudeUsageApi,
   CodexUsageApi,
   MuseUsageApi,
@@ -18,6 +19,7 @@ import type {
   RateLimitsApi
 } from './api/agent-usage-api'
 import type { AiVaultApi } from './api/ai-vault-api'
+import type { RateLimitWatcherApi } from './api/rate-limit-watcher-api'
 import type { AppApi, E2EApi, PlatformApi } from './api/app-api'
 import type { AutomationsApi } from './api/automation-api'
 import type { BrowserApi } from './api/browser/browser-api'
@@ -157,6 +159,8 @@ export type PreloadApi = {
     saveApiKey: (key: string) => Promise<{ apiKeyConfigured: boolean }>
     clearApiKey: () => Promise<{ apiKeyConfigured: boolean }>
   }
+  agentAutoResume: AgentAutoResumeApi
+  rateLimitWatcher: RateLimitWatcherApi
   minimaxCredentials: MinimaxCredentialsApi
   zcodePlanCredentials: ZcodePlanCredentialsApi
   grokAccounts: GrokAccountsApi

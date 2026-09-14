@@ -58,5 +58,7 @@ export const WSL_DRIVE_UNC_STATE_DISPOSITIONS = {
   onboarding: 'keep',
   featureInteractionTelemetryBuckets: 'keep',
   codexResetCreditAttemptLedger: 'keep',
-  chatUiLaunchTipAudience: 'keep'
+  chatUiLaunchTipAudience: 'keep',
+  // Armed watcher entries are tab ids, not paths.
+  rateLimitWatcherTabs: 'keep'
 } as const satisfies Record<keyof PersistedState, Disposition>

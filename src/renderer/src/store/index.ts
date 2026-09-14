@@ -28,6 +28,8 @@ import {
 } from './slices/usage/usage-provider-slices'
 import { createBrowserSlice } from './slices/browser/create-browser-slice'
 import { createRateLimitSlice } from './slices/usage/rate-limits'
+import { createAutoResumeSlice } from './slices/auto-resume'
+import { createRateLimitWatcherSlice } from './slices/rate-limit-watcher'
 import { createSshSlice } from './slices/ssh/create-ssh-slice'
 import { createRuntimeEnvironmentSshSlice } from './slices/ssh/runtime-environment-ssh'
 import { createWslHostsSlice } from './slices/wsl/wsl-hosts'
@@ -127,6 +129,8 @@ export const useAppStore = create<AppState>()(
           ...createMuseUsageSlice(...a),
           ...createBrowserSlice(...a),
           ...createRateLimitSlice(...a),
+          ...createAutoResumeSlice(...a),
+          ...createRateLimitWatcherSlice(...a),
           ...createSshSlice(...a),
           ...createRuntimeEnvironmentSshSlice(...a),
           ...createWslHostsSlice(...a),

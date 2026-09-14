@@ -39,6 +39,7 @@ export abstract class OrcaRuntimeWithApplyTrackedPtyTitle extends OrcaRuntimeWit
   protected abstract clearAgentPromptCorrelationForPty(ptyId: string): void
   protected abstract collectAgentStatusPaneKeysForPty(ptyId: string): Set<string>
   protected abstract markPaneLiveTitlesDirty(): void
+  protected abstract clearPtyUsageLimitStall(pty: RuntimePtyWorktreeRecord, ptyId: string): void
   /** A title moved a terminal agent to another status; worktree.ps rows show it without a hook row. */
   protected abstract onTitleAgentStatusChanged(): void
 
@@ -166,6 +167,23 @@ export abstract class OrcaRuntimeWithApplyTrackedPtyTitle extends OrcaRuntimeWit
         this.setPtyManagementTitleFromObservedTitle(pty, normalizedTitle, observedAt)
       }
       ptyRecordChanged = prevTitle !== recordedTitle || prevStatus !== agentStatus
+      // Why: a resumed agent must stop being tracked so the service never pokes
+      // a working agent (product rule #6). Working is the only status that
+      // clears — an idle-at-banner agent is still limited. Banners only: the
+      // chooser interrupts a turn whose spinner title can emit another frame
+      // after the menu renders, and one such frame here killed the tracked
+      // stall seconds after detection. A menu stall ends when the service acts
+      // on it or its live-chooser re-read finds the menu gone — never on the
+      // title stream, which lies for the whole time a chooser is up. Everything
+      // else does clear here, including the CLI's own auto-continue: the agent
+      // going back to work IS that wait having succeeded.
+      if (
+        agentStatus === 'working' &&
+        pty.usageLimitStall !== null &&
+        pty.usageLimitStall.reason !== 'usage-limit-menu'
+      ) {
+        this.clearPtyUsageLimitStall(pty, ptyId)
+      }
       // Re-offer idle-to-idle upgrades from name-only to explicit evidence; exclude permission-to-idle and unchanged repaints to avoid tail rescans.
       if (agentStatus === 'idle' && prevStatus !== 'permission' && ptyRecordChanged) {
         this.resolvePtyTuiIdleWaiters(pty, ptyId)

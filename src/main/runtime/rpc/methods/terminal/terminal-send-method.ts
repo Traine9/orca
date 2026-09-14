@@ -6,16 +6,18 @@ import { assertLegacyAiVaultResumeCommandAllowed } from '../../../../ai-vault/st
 import { InvalidArgumentError, defineMethod } from '../../core'
 import { isTerminalQueryReply } from '../../../../../shared/terminal/protocol/queries/terminal-query-reply'
 import { isUntypedTerminalInput } from '../../../../../shared/terminal/input/terminal-untyped-input'
-import { assertTerminalAgentSendable } from '../../terminal-agent-send-guard'
+import {
+  assertTerminalAgentSendable,
+  getTerminalSendGuardRefusedReason,
+  isTerminalSendGuardNotWritable
+} from '../../terminal-agent-send-guard'
 import { TerminalSend } from '../../../../../shared/rpc-contract/terminal-unary-params'
 import type { RuntimeTerminalSend } from '../../../../../shared/runtime-terminal-send-contract'
 import {
   assertTerminalSendExactPtyBinding,
   assertTerminalSendTextWithinLimit,
   commitMobileInputFloorClaim,
-  getTerminalSendGuardRefusedReason,
   terminalInputSourceForClient,
-  isTerminalSendGuardNotWritable,
   resolveMobileFloorClientId,
   type MobileInputFloorClaimHolder
 } from './terminal-input-delivery'

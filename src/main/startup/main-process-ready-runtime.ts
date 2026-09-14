@@ -28,6 +28,7 @@ import {
   initializeMainProcessRuntime,
   configureRuntimeServices
 } from './main-process-runtime-service'
+import { initializeMainProcessAgentAutoResume } from './main-process-agent-auto-resume'
 import { initializeMainProcessAutomations } from './main-process-automations'
 import { initializeMainProcessPlugins } from './main-process-plugins'
 import {
@@ -62,6 +63,9 @@ export async function initializeReadyRuntimeServices(): Promise<void> {
   initializeMainProcessObservers()
   initializeMainProcessAccountServices()
   const runtime = initializeMainProcessRuntime()
+  // Subscribes to runtime stall events, so it must exist before any pane can
+  // start emitting — and before registerCoreHandlers reads it.
+  initializeMainProcessAgentAutoResume(runtime)
   initializeMainProcessAutomations()
   configureRuntimeServices(runtime)
   installFirstWorkRenameHookSubscription()

@@ -1261,6 +1261,16 @@
             }
           }
         }
+      },
+      "status-bar": {
+        "auto-resume": {
+          "agent": "agent",
+          "agents": "agents",
+          "label": "{{n}} paused",
+          "resumes": "resumes {{time}}",
+          "tooltip": "{{n}} {{noun}} paused · {{detail}}",
+          "waiting": "waiting for reset"
+        }
       }
     },
     "hooks": {
@@ -1399,6 +1409,10 @@
           "wslCodexHomeUnavailable": "WSL Codex home unavailable for {{distro}}",
           "wslKimiHomeUnavailable": "WSL Kimi home unavailable for {{distro}}"
         }
+      },
+      "auto-resume": {
+        "rate-limited-resumes": "Rate-limited · resumes {{time}}",
+        "rate-limited-waiting": "Rate-limited · waiting for reset"
       }
     },
     "runtime": {

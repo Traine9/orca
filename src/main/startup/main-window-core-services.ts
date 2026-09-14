@@ -116,7 +116,8 @@ export function attachMainWindowCoreServices(
             ? { reviewNotices: state.pluginUpdateReviewNotices }
             : {})
         }
-      : undefined
+      : undefined,
+    state.agentAutoResumeService ?? undefined
   )
   automations.start()
   attachMainWindowServices(

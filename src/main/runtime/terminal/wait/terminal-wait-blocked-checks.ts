@@ -9,9 +9,11 @@ import {
 } from './wait-blocked-check-state'
 import {
   computeTerminalTailWaitState,
-  tailGainedNewerBlockedReason
+  tailGainedNewerBlockedReason,
+  tailGainedNewerUsageLimitStall
 } from './terminal-wait-tail-state'
 import { ownRetainedString } from '../../../../shared/own-retained-string'
+import { isLiveUsageLimitMenu, readUsageLimitMenu } from '../../../../shared/usage-limit-menu-selection'
 import type { ProcessedAgentStatusChunk } from '../../../../shared/agent-status/transport/agent-status-osc'
 import { createTerminalAgentStatusProcessor } from '../../../../shared/program-status/terminal-agent-status-processor'
 import type { RuntimePtyTitleTrackerEntry } from '../records/runtime-terminal-state-records'
@@ -19,6 +21,7 @@ import type { RuntimePtyTitleTrackerEntry } from '../records/runtime-terminal-st
 import type { OrcaRuntimeWithRecordAgentPromptLifecycleState } from '../output/terminal-output-generation'
 import type { OrcaRuntimeWithEmitDaemonPtyTransientFact } from '../output/terminal-transient-facts'
 import type { OrcaRuntimeWithGetUnpersistedTrackedTitleForPty } from '../output/terminal-title-tracker'
+import type { OrcaRuntimeWithUsageLimitStall } from '../../orca-runtime-usage-limit-stall'
 const WAIT_BLOCKED_CHECK_MIN_INTERVAL_MS = 50
 
 // New-chunk/short-carry prompt matches bypass throttling so blocked status publishes immediately.
@@ -39,6 +42,14 @@ export abstract class OrcaRuntimeWithScheduleWaitBlockedCheck extends OrcaRuntim
   protected abstract emitTerminalSideEffectBatch(
     ...args: Parameters<OrcaRuntimeWithEmitDaemonPtyTransientFact['emitTerminalSideEffectBatch']>
   ): ReturnType<OrcaRuntimeWithEmitDaemonPtyTransientFact['emitTerminalSideEffectBatch']>
+
+  protected abstract recordPtyUsageLimitStall(
+    ...args: Parameters<OrcaRuntimeWithUsageLimitStall['recordPtyUsageLimitStall']>
+  ): ReturnType<OrcaRuntimeWithUsageLimitStall['recordPtyUsageLimitStall']>
+
+  protected abstract clearPtyUsageLimitStall(
+    ...args: Parameters<OrcaRuntimeWithUsageLimitStall['clearPtyUsageLimitStall']>
+  ): ReturnType<OrcaRuntimeWithUsageLimitStall['clearPtyUsageLimitStall']>
 
   protected abstract getOrCreatePtyTitleTrackerEntry(
     ...args: Parameters<
@@ -99,13 +110,27 @@ export abstract class OrcaRuntimeWithScheduleWaitBlockedCheck extends OrcaRuntim
     const previousWaitState = state.lastWaitState ?? {
       waitText: '',
       signal: null,
+      usageLimitSignal: null,
       fromTail: false
+    }
+    // Joined once: the carry keeps output as chunks precisely so this flatten
+    // happens per scan rather than per PTY frame, and both checks below need it.
+    const appendedText = readWaitBlockedCarry(state.appended)
+    // Why lazy and shared: both "gained newer" checks scan the same
+    // previous-tail + appended text, which can approach 512 KiB. Building it
+    // eagerly wasted the allocation on every check that never reaches a scan;
+    // building it per check allocated it twice when both signals were live.
+    let normalizedAppendScan: string | null = null
+    const getNormalizedAppendScan = (): string => {
+      normalizedAppendScan ??= `${previousWaitState.waitText}${appendedText}`.toLowerCase()
+      return normalizedAppendScan
     }
     if (
       tailGainedNewerBlockedReason(
         previousWaitState,
         nextWaitState,
-        readWaitBlockedCarry(state.appended)
+        appendedText,
+        getNormalizedAppendScan
       )
     ) {
       pty.waitBlockedAt = at
@@ -116,6 +141,24 @@ export abstract class OrcaRuntimeWithScheduleWaitBlockedCheck extends OrcaRuntim
         }
       }
       this.recordAgentPromptPermissionObservation(ptyId)
+    }
+    if (
+      tailGainedNewerUsageLimitStall(
+        previousWaitState,
+        nextWaitState,
+        appendedText,
+        getNormalizedAppendScan
+      )
+    ) {
+      this.recordPtyUsageLimitStall(pty, ptyId, nextWaitState, at)
+    } else if (
+      pty.usageLimitStall?.reason === 'usage-limit-menu' &&
+      readUsageLimitMenu(nextWaitState.waitText).state === 'dismissed'
+    ) {
+      // Menus never clear on a working title (the chooser keeps the interrupted
+      // turn's spinner), so without this the record outlives the chooser for the
+      // PTY's life and every later re-emit announces a stall nobody is in.
+      this.clearPtyUsageLimitStall(pty, ptyId)
     }
     state.lastAt = at
     state.lastWaitState = nextWaitState
@@ -151,6 +194,21 @@ export abstract class OrcaRuntimeWithScheduleWaitBlockedCheck extends OrcaRuntim
         pty.tailPartialLine,
         pty.preview
       )
+      // One deliberate exception to "seeded content never triggers": an agent
+      // parked at the usage-limit chooser prints nothing further, so the
+      // edge-triggered scan can never see it — a stall that predates this
+      // process would stay invisible forever. Menus only, and only while a
+      // live chooser still owns the bottom of the seeded screen; banner text
+      // in restored scrollback stays inert, because resending "continue" into
+      // an agent that finished hours ago would start an unwanted turn, while
+      // the menu path re-reads the chooser by label before pressing anything.
+      if (
+        !pty.usageLimitStall &&
+        state.lastWaitState.usageLimitSignal?.reason === 'usage-limit-menu' &&
+        isLiveUsageLimitMenu(state.lastWaitState.waitText)
+      ) {
+        this.recordPtyUsageLimitStall(pty, ptyId, state.lastWaitState, Date.now())
+      }
     }
   }
 

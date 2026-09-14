@@ -14,6 +14,7 @@ import type {
   RateLimitRuntimeTarget,
   RateLimitState
 } from '../../shared/rate-limit-types'
+import type { AgentAutoResumeSnapshot } from '../../shared/agent-auto-resume-types'
 
 export type UsageProviderSnapshot = {
   scanState: unknown
@@ -65,4 +66,10 @@ export type RateLimitsApi = {
   fetchInactiveCodexAccounts: () => Promise<void>
   refreshGrok: () => Promise<RateLimitState>
   onUpdate: (callback: (state: RateLimitState) => void) => () => void
+}
+
+export type AgentAutoResumeApi = {
+  /** Hydrate the currently tracked usage-limit stalls after a renderer reload. */
+  get: () => Promise<AgentAutoResumeSnapshot>
+  onUpdate: (callback: (snapshot: AgentAutoResumeSnapshot) => void) => () => void
 }

@@ -17,6 +17,7 @@ import type { PtyProviderBufferSnapshot } from '../../../providers/pty-provider-
 import type { RetainedTailRedrawCursor } from '../output/tail/terminal-tail-redraw-buffer'
 import type { TerminalTailWaitState } from '../wait/terminal-wait-tail-state'
 import type { TerminalCommandPaint } from '../input/terminal-command-paint'
+import type { PtyUsageLimitStall } from '../../runtime-usage-limit-stall-contracts'
 import type { PtyShellOwnershipMirror } from '../query/pty-shell-ownership-mirror'
 import type { LaunchEvidence } from '../launch/launch-evidence'
 import type { TerminalExitCause } from '../../../../shared/terminal/pty/lifecycle/terminal-exit-cause'
@@ -141,6 +142,10 @@ export type RuntimePtyWorktreeRecord = RuntimeTerminalTailState & {
   outputObservedSince?: number | null
   /** See terminal-command-paint.ts; absent until the pane's first output, and again after a gap or a new process. */
   commandPaint?: TerminalCommandPaint
+  // Why: the live usage-limit stall this PTY is currently in, stamped when a
+  // *newer* banner/menu appears in the tail. Feeds AgentAutoResumeService via
+  // the usage-limit-stall event; cleared when the agent goes back to working.
+  usageLimitStall: PtyUsageLimitStall | null
 }
 
 export type RuntimePtyTabCloseAuthority = {

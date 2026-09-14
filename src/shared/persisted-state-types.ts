@@ -123,6 +123,10 @@ export type PersistedState = {
   orcadMigrationEvictedReceipts?: OrcadMigrationEvictedReceipt[]
   /** Catalogs staged on an orcad and not yet committed or aborted. */
   orcadMigrationStagedCatalogs?: OrcadMigrationStagedCatalog[]
+  /** Terminal tab ids the rate-limit watcher is armed on. Main-owned, so the
+   *  auto-resume gate reads the same value the checkbox wrote without waiting on
+   *  a renderer session save. */
+  rateLimitWatcherTabs?: string[]
   onboarding: OnboardingState
   /** Main-owned telemetry de-dupe marker; never exposed through PersistedUIState. */
   featureInteractionTelemetryBuckets?: FeatureInteractionTelemetryBucketState

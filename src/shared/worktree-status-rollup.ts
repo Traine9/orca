@@ -9,6 +9,7 @@ export type WorktreeStatus =
   | 'failed'
   | 'interrupted'
   | 'unconfirmed'
+  | 'rate-limited'
   | 'done'
   | 'inactive'
 
@@ -73,6 +74,7 @@ export function rankWorktreeStatus(
   flags: Partial<AgentPaneActivityFlags> & {
     hasRetainedDone?: boolean
     hasRetainedFailed?: boolean
+    hasRateLimited?: boolean
   }
 ): WorktreeStatus {
   if (flags.hasPermission) {
@@ -92,6 +94,12 @@ export function rankWorktreeStatus(
   }
   if (flags.hasLiveMonitoring || heuristic === 'monitoring') {
     return 'monitoring'
+  }
+  // Why: a rate-limited (paused) agent outranks the passive done/active/inactive
+  // states so the card advertises that Orca is waiting to auto-resume it, but
+  // stays below permission/working which are more user-actionable / live.
+  if (flags.hasRateLimited) {
+    return 'rate-limited'
   }
   // Why: a departed agent's failure has no expiry, so it must not pin the card over live work.
   if (flags.hasRetainedFailed) {

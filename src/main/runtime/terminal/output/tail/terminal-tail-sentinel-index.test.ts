@@ -4,7 +4,9 @@ import { MAX_TAIL_CHARS, MAX_TAIL_LINES } from './terminal-tail-limits'
 import { buildPreview } from './terminal-tail-state'
 import {
   getTerminalTailSentinelMatches,
-  tailMayContainBlockedSignal
+  tailMayContainBlockedSignal,
+  tailMayContainUsageLimitSignal,
+  TERMINAL_USAGE_LIMIT_SENTINEL_RE
 } from './terminal-tail-sentinel-index'
 import { computeTerminalTailWaitState } from '../../wait/terminal-wait-tail-state'
 import { terminalWaitBlockedSentinelRe } from '../../../agent-state-rules/blocked-text-layer'
@@ -159,6 +161,59 @@ describe('terminal tail sentinel index carried window', () => {
     }
     assertIndexedPositionsAreExact(sim.lines)
     expect(indexedMayContainBlockedSignal(sim.lines, sim.partialLine)).toBe(false)
+  })
+})
+
+// The usage-limit prefilter decides whether usage-limit stall detection runs at all.
+const USAGE_LIMIT_LINE = "You've hit your session limit · resets 3:50pm"
+
+function referenceMayContainUsageLimitSignal(lines: string[], partialLine: string): boolean {
+  return (
+    lines.some((line) => TERMINAL_USAGE_LIMIT_SENTINEL_RE.test(line)) ||
+    TERMINAL_USAGE_LIMIT_SENTINEL_RE.test(partialLine)
+  )
+}
+
+function indexedMayContainUsageLimitSignal(lines: string[], partialLine: string): boolean {
+  return tailMayContainUsageLimitSignal(lines) || TERMINAL_USAGE_LIMIT_SENTINEL_RE.test(partialLine)
+}
+
+function expectUsageLimitIndexMatchesFullScan(sim: TailSim): void {
+  expect(indexedMayContainUsageLimitSignal(sim.lines, sim.partialLine)).toBe(
+    referenceMayContainUsageLimitSignal(unindexed(sim), sim.partialLine)
+  )
+}
+
+describe('terminal tail usage-limit sentinel', () => {
+  it('carries and evicts the usage-limit sentinel independently of the blocked one', () => {
+    const sim = saturatedSim()
+    feed(sim, `${USAGE_LIMIT_LINE}\n`)
+    expect(indexedMayContainUsageLimitSignal(sim.lines, sim.partialLine)).toBe(true)
+    expect(indexedMayContainBlockedSignal(sim.lines, sim.partialLine)).toBe(false)
+    expectUsageLimitIndexMatchesFullScan(sim)
+
+    for (let index = 0; index < MAX_TAIL_LINES; index += 1) {
+      feed(sim, `after limit ${index}\n`)
+    }
+    expect(sim.lines.includes(USAGE_LIMIT_LINE)).toBe(false)
+    expect(indexedMayContainUsageLimitSignal(sim.lines, sim.partialLine)).toBe(false)
+    expectUsageLimitIndexMatchesFullScan(sim)
+  })
+
+  it('carries the usage-limit sentinel through the same redraw windows', () => {
+    const sim = saturatedSim()
+    feed(sim, `${ESC}[3A${ESC}[2K${USAGE_LIMIT_LINE}\n`)
+    expect(indexedMayContainUsageLimitSignal(sim.lines, sim.partialLine)).toBe(true)
+    expectUsageLimitIndexMatchesFullScan(sim)
+
+    feed(sim, `${ESC}[1A${ESC}[2Kplain replacement\n`)
+    expect(indexedMayContainUsageLimitSignal(sim.lines, sim.partialLine)).toBe(false)
+    expectUsageLimitIndexMatchesFullScan(sim)
+
+    // Deep enough to outrun the window: carries nothing and rescans in full.
+    feed(sim, `${ESC}[2500A${ESC}[2K${USAGE_LIMIT_LINE}\n`)
+    expect(indexedMayContainUsageLimitSignal(sim.lines, sim.partialLine)).toBe(true)
+    expectUsageLimitIndexMatchesFullScan(sim)
   })
 })
 

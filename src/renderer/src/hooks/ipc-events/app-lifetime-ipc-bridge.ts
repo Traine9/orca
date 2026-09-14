@@ -7,6 +7,7 @@ import { createBackgroundSleepingAgentWakeDispatcher } from '@/lib/agent-session
 import { remoteRuntimeTerminalColorPush } from '@/runtime/hosted-terminals/streams/remote-runtime-terminal-color-push'
 import { resetAgentHookCompletionNotificationCoordinators } from '../agent-hook-completion-notifications'
 import { useAppStore } from '../../store/index'
+import { registerAgentAutoResumeIpcBridge } from './agent-auto-resume-ipc-bridge'
 import { registerAgentStatusIpcBridge } from './agent-status-ipc-bridge'
 import { registerBackgroundWorktreeRemovalBridge } from './background-worktree-removal-bridge'
 import {
@@ -142,6 +143,7 @@ export function installAppLifetimeIpcEvents(): () => void {
   registerBrowserTabActivateIpcBridge(unsubs)
   registerTabLifecycleIpcBridge(unsubs)
   registerRateLimitIpcBridge(unsubs)
+  registerAgentAutoResumeIpcBridge(unsubs)
   registerPluginViewIpcBridge(unsubs)
   registerClaudeAccountSwitchIpcBridge(unsubs)
   const stopDirectSshStateBridge = registerDirectSshStateIpcBridge(unsubs)

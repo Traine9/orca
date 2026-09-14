@@ -15,6 +15,7 @@ import { selectWorktreeAgentActivitySummary } from './worktree-agent-activity-su
 import { selectStoppedWslDistro } from '@/runtime/hosts/wsl/wsl-host-stopped-status'
 import { selectWorkspaceRuntimeEnvironmentId } from '../../../../lib/workspace/ownership/workspace-runtime-environment'
 import { parseRemoteRuntimePtyId } from '../../../../../../shared/remote-runtime/remote-runtime-pty-id'
+import { selectHasRateLimitedForWorktree } from '@/store/slices/auto-resume'
 
 /** The Start card's rule: a pane with no server yet, or on the stopped one, ended with its distro. */
 function withoutStoppedHostPtys(
@@ -89,6 +90,7 @@ export function useWorktreeActivityStatus(worktreeId: string): WorktreeStatus {
     agentStatusPaneIdsByTabId,
     stalePaneIdsByTabId
   } = useAppStore(useShallow((s) => selectWorktreeAgentActivitySummary(s, worktreeId)))
+  const hasRateLimited = useAppStore((s) => selectHasRateLimitedForWorktree(s, worktreeId))
 
   // Use common liveness and agent-row precedence so compact and detailed cards show the same status.
   return useMemo(
@@ -110,7 +112,8 @@ export function useWorktreeActivityStatus(worktreeId: string): WorktreeStatus {
         hasUnconfirmed,
         hasLiveDone,
         hasRetainedDone,
-        hasRetainedFailed
+        hasRetainedFailed,
+        hasRateLimited
       }),
     [
       tabs,
@@ -129,7 +132,8 @@ export function useWorktreeActivityStatus(worktreeId: string): WorktreeStatus {
       hasUnconfirmed,
       hasLiveDone,
       hasRetainedDone,
-      hasRetainedFailed
+      hasRetainedFailed,
+      hasRateLimited
     ]
   )
 }

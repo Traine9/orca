@@ -21,7 +21,9 @@ export const agentStatusColors = (): Record<WorktreeStatus, string> => ({
   failed: '#ef4444',
   interrupted: colors.textMuted,
   unconfirmed: colors.statusAmber,
-  inactive: 'rgba(115,115,115,0.4)'
+  inactive: 'rgba(115,115,115,0.4)',
+  // Fork: an agent parked on a usage limit, waiting for the auto-resume watcher.
+  'rate-limited': colors.statusAmber
 })
 
 /** `status` null is a state not known yet (rows from the phone's store): the slot keeps its width, empty. */

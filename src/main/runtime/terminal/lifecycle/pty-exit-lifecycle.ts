@@ -16,9 +16,11 @@ import { ORCA_LAYOUT_OWNER_IS_MAIN } from '../../../../shared/layout-owner-switc
 import { exitedSplitPaneFacts } from './exited-split-pane-rule'
 import { closedPaneOfExitedPty, type ClosedPaneOfExit } from './closed-pane-of-exited-pty'
 import type { RuntimePtyWorktreeRecord } from '../records/runtime-terminal-state-records'
+import type { UsageLimitStallEvent } from '../../runtime-usage-limit-stall-contracts'
 
 export abstract class OrcaRuntimeWithOnPtyExit extends OrcaRuntimeWithOnClientDisconnected {
   protected abstract pruneDisconnectedPtyRecords(): void
+  protected abstract emitUsageLimitStall(event: UsageLimitStallEvent): void
 
   protected abstract failActiveDispatchOnExit(
     handle: string,
@@ -261,6 +263,19 @@ export abstract class OrcaRuntimeWithOnPtyExit extends OrcaRuntimeWithOnClientDi
         pty.lastExitCause = exitCause
         // Same-id replacements must earn live idle evidence before delivery; retain status only for display.
         pty.lastAgentStatusObservedLive = false
+        // Why: a PTY dying mid-stall can't be resumed by keystrokes; hand the
+        // dead-PTY case to the service (which notifies / defers to the sleeping-
+        // agent resume path) before the record is pruned.
+        if (pty.usageLimitStall) {
+          this.emitUsageLimitStall({
+            kind: 'exited',
+            ptyId,
+            worktreeId: pty.worktreeId ?? null,
+            paneKey: pty.paneKey ?? null,
+            exitCode
+          })
+          pty.usageLimitStall = null
+        }
         this.resolvePtyExitWaiters(pty, ptyId)
         this.pruneDisconnectedPtyTranscript(pty)
       }
