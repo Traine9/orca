@@ -213,6 +213,19 @@ export class OrcaRuntimeWithOnPtyExit extends OrcaRuntimeWithOnClientDisconnecte
       // so leaving this true would let push delivery type into the new process
       // on the dead one's idle. lastAgentStatus itself stays for `ps` display.
       pty.lastAgentStatusObservedLive = false
+      // Why: a PTY dying mid-stall can't be resumed by keystrokes; hand the
+      // dead-PTY case to the service (which notifies / defers to the sleeping-
+      // agent resume path) before the record is pruned.
+      if (pty.usageLimitStall) {
+        this.emitUsageLimitStall({
+          kind: 'exited',
+          ptyId,
+          worktreeId: pty.worktreeId ?? null,
+          paneKey: pty.paneKey,
+          exitCode
+        })
+        pty.usageLimitStall = null
+      }
       this.resolvePtyExitWaiters(pty, ptyId)
       this.pruneDisconnectedPtyTranscript(pty)
     }
