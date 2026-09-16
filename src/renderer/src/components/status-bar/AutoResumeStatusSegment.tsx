@@ -85,7 +85,7 @@ export function AutoResumeStatusSegment({
           className="inline-flex items-center gap-1.5 cursor-pointer rounded px-1 py-0.5 hover:bg-accent/70"
           aria-label={tooltip}
         >
-          <Hourglass className="size-3 text-amber-500" />
+          <Hourglass className="size-3 text-annotation-highlight" />
           {!iconOnly && <span className="text-[11px] tabular-nums">{label}</span>}
         </button>
       </TooltipTrigger>

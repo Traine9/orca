@@ -60,7 +60,7 @@ export function WorkspaceRateLimitWatcherMenuItem({
           )}
         </DropdownMenuCheckboxItem>
       </TooltipTrigger>
-      <TooltipContent side="right" sideOffset={8} className="max-w-[220px] text-pretty">
+      <TooltipContent side="right" sideOffset={8} className="max-w-[220px]">
         {translate(
           'auto.components.sidebar.WorktreeContextMenu.rateLimitWatcherDescription',
           "Wait for the provider usage limit to reset and resume this workspace's agent automatically."
