@@ -24,6 +24,7 @@ import type {
 import type { BrowserSlice } from './slices/browser'
 import type { RateLimitSlice } from './slices/rate-limits'
 import type { AutoResumeSlice } from './slices/auto-resume'
+import type { ScheduledMessagesSlice } from './slices/scheduled-messages'
 import type { RateLimitWatcherSlice } from './slices/rate-limit-watcher'
 import type { SshSlice } from './slices/ssh'
 import type { RuntimeEnvironmentSshSlice } from './slices/runtime-environment-ssh'
@@ -72,6 +73,7 @@ export type AppState = RepoSlice &
   BrowserSlice &
   RateLimitSlice &
   AutoResumeSlice &
+  ScheduledMessagesSlice &
   RateLimitWatcherSlice &
   SshSlice &
   RuntimeEnvironmentSshSlice &

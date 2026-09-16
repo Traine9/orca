@@ -1,0 +1,372 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  IDLE_EDGE_SETTLE_MS,
+  ScheduledMessageService,
+  type ScheduledMessageNotification,
+  type ScheduledMessagePaneTarget
+} from './scheduled-message-service'
+import { MAX_DELIVERY_ATTEMPTS } from './scheduled-message-delivery-outcome'
+import {
+  SCHEDULED_MESSAGE_MAX_USAGE_LIMIT_WAIT_MS,
+  SCHEDULED_MESSAGE_MISSED_GRACE_MS,
+  SCHEDULED_MESSAGE_TICK_MS,
+  type ScheduledMessage
+} from '../shared/scheduled-message-types'
+
+const WORKTREE = 'repo::wt'
+const HANDLE = 'handle-1'
+const PTY = 'pty-1'
+const NOW = 1_700_000_000_000
+
+function makeHarness(
+  options: { pane?: ScheduledMessagePaneTarget | null; stalled?: boolean } = {}
+) {
+  let rows: ScheduledMessage[] = []
+  let clock = NOW
+  let nextId = 0
+  const deliver = vi.fn<(handle: string, text: string) => Promise<void>>(() => Promise.resolve())
+  const notify = vi.fn<(n: ScheduledMessageNotification) => void>()
+  const pane = options.pane === undefined ? { handle: HANDLE, ptyId: PTY } : options.pane
+  const stall = { stalled: options.stalled === true }
+  const deferForUsageLimit = vi.fn<(ptyId: string, handle: string) => Promise<boolean>>(() =>
+    Promise.resolve(stall.stalled)
+  )
+  const service = new ScheduledMessageService({
+    store: {
+      listScheduledMessages: () => rows,
+      putScheduledMessage: (message) => {
+        const index = rows.findIndex((row) => row.id === message.id)
+        rows = index === -1 ? [...rows, message] : rows.toSpliced(index, 1, message)
+      },
+      deleteScheduledMessage: (id) => {
+        rows = rows.filter((row) => row.id !== id)
+      }
+    },
+    resolveAgentPane: () => Promise.resolve(pane),
+    deliver,
+    deferForUsageLimit,
+    createId: () => `msg-${++nextId}`,
+    notify,
+    now: () => clock,
+    logger: { debug: vi.fn(), warn: vi.fn() }
+  })
+  return {
+    service,
+    deliver,
+    notify,
+    stall,
+    deferForUsageLimit,
+    rows: () => rows,
+    advance: (ms: number) => {
+      clock += ms
+    }
+  }
+}
+
+describe('ScheduledMessageService', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('delivers an at-time message once it comes due and removes the row', async () => {
+    const h = makeHarness()
+    h.service.add({
+      worktreeId: WORKTREE,
+      text: 'ship it',
+      timing: { kind: 'at', sendAt: NOW + 60_000 }
+    })
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
+    expect(h.deliver).not.toHaveBeenCalled()
+
+    h.advance(61_000)
+    await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'ship it')
+    expect(h.rows()).toHaveLength(0)
+    expect(h.notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'sent' }))
+  })
+
+  it('refuses to send past the grace window and leaves a missed row behind', async () => {
+    const h = makeHarness()
+    h.service.add({
+      worktreeId: WORKTREE,
+      text: 'stale',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    // Simulates Orca having been closed: the due moment passed long ago.
+    h.advance(SCHEDULED_MESSAGE_MISSED_GRACE_MS + 60_000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(h.deliver).not.toHaveBeenCalled()
+    expect(h.rows()[0]).toMatchObject({
+      status: 'missed',
+      failureReason: 'expired-while-closed'
+    })
+    expect(h.notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'missed' }))
+  })
+
+  it('sends late but silently inside the grace window', async () => {
+    const h = makeHarness()
+    h.service.add({ worktreeId: WORKTREE, text: 'ok', timing: { kind: 'at', sendAt: NOW + 1000 } })
+    h.advance(SCHEDULED_MESSAGE_MISSED_GRACE_MS - 1000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'ok')
+    expect(h.rows()).toHaveLength(0)
+  })
+
+  it('defers rather than typing into a usage-limit stalled pane', async () => {
+    const h = makeHarness({ stalled: true })
+    h.service.add({
+      worktreeId: WORKTREE,
+      text: 'later',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    h.advance(2000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(h.deliver).not.toHaveBeenCalled()
+    // Handed the pane so the free "wait for reset" option can be chosen on the
+    // way past, instead of the menu just sitting there.
+    expect(h.deferForUsageLimit).toHaveBeenCalledWith(PTY, HANDLE)
+    expect(h.rows()[0]).toMatchObject({ status: 'pending' })
+
+    h.stall.stalled = false
+    await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'later')
+  })
+
+  it('still delivers when the usage limit outlasts the grace window', async () => {
+    // "Send this when the limit expires" is the whole point of the feature, and
+    // a real limit outlasts the 10-minute window many times over. Charging that
+    // deliberate wait against the "Orca was closed" grace marked every such
+    // message `missed` before the limit had a chance to reset.
+    const h = makeHarness({ stalled: true })
+    h.service.add({
+      worktreeId: WORKTREE,
+      text: 'resume the migration',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    h.advance(2000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+
+    const ticks = Math.ceil((SCHEDULED_MESSAGE_MISSED_GRACE_MS * 3) / SCHEDULED_MESSAGE_TICK_MS)
+    for (let i = 0; i < ticks; i++) {
+      h.advance(SCHEDULED_MESSAGE_TICK_MS)
+      await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
+    }
+    expect(h.deliver).not.toHaveBeenCalled()
+    expect(h.rows()[0]).toMatchObject({ status: 'pending' })
+    expect(h.notify).not.toHaveBeenCalled()
+
+    h.stall.stalled = false
+    h.advance(SCHEDULED_MESSAGE_TICK_MS)
+    await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'resume the migration')
+    expect(h.rows()).toHaveLength(0)
+  })
+
+  it('credits the wait that is still open when the grace is checked', async () => {
+    // The first defer lands 15s inside the 10-minute grace; one tick later the
+    // message is nominally past it, and only the still-open deferral keeps it
+    // alive. Banking a wait only when the NEXT defer arrives loses exactly this.
+    const h = makeHarness({ stalled: true })
+    h.service.add({
+      worktreeId: WORKTREE,
+      text: 'resume',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    h.advance(1000 + SCHEDULED_MESSAGE_MISSED_GRACE_MS - 15_000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(h.rows()[0]).toMatchObject({ status: 'pending' })
+
+    h.advance(SCHEDULED_MESSAGE_TICK_MS)
+    await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
+    expect(h.rows()[0]).toMatchObject({ status: 'pending' })
+    expect(h.notify).not.toHaveBeenCalled()
+  })
+
+  it('keeps the wait already served when the user presses Send now', async () => {
+    // Send now revives the row for a fresh set of attempts, but the limit it is
+    // waiting on does not reset because a button was clicked. Clearing the credit
+    // with the attempts marked the row missed on the very next tick.
+    const h = makeHarness({ stalled: true })
+    const message = h.service.add({
+      worktreeId: WORKTREE,
+      text: 'resume',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    h.advance(2000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+
+    h.advance(60 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
+    await h.service.sendNow(message.id)
+    expect(h.rows()[0]).toMatchObject({ status: 'pending' })
+
+    h.advance(SCHEDULED_MESSAGE_TICK_MS)
+    await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
+    expect(h.rows()[0]).toMatchObject({ status: 'pending' })
+
+    h.stall.stalled = false
+    h.advance(SCHEDULED_MESSAGE_TICK_MS)
+    await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'resume')
+  })
+
+  it('gives up once the usage limit outlasts the maximum wait', async () => {
+    // Deferring forever is not kindness: past the ceiling the agent's context is
+    // as gone as it would be after a long shutdown, so tell the user rather than
+    // typing the text in half a day late with nobody watching.
+    const h = makeHarness({ stalled: true })
+    h.service.add({
+      worktreeId: WORKTREE,
+      text: 'resume',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    h.advance(2000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+
+    const hour = 60 * 60 * 1000
+    for (let waited = 0; waited <= SCHEDULED_MESSAGE_MAX_USAGE_LIMIT_WAIT_MS; waited += hour) {
+      h.advance(hour)
+      await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
+    }
+    expect(h.deliver).not.toHaveBeenCalled()
+    expect(h.rows()[0]).toMatchObject({
+      status: 'missed',
+      failureReason: 'usage-limit-outlasted'
+    })
+    expect(h.notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'missed' }))
+  })
+
+  it('fails a due message when the workspace has no live pane', async () => {
+    const h = makeHarness({ pane: null })
+    h.service.add({
+      worktreeId: WORKTREE,
+      text: 'nowhere',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    h.advance(2000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(h.rows()[0]).toMatchObject({ status: 'failed', failureReason: 'no-pane' })
+  })
+
+  it('delivers a when-idle message on the idle edge, after the settle delay', async () => {
+    const h = makeHarness()
+    h.service.add({ worktreeId: WORKTREE, text: 'on idle', timing: { kind: 'when-idle' } })
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
+    // A tick alone must never fire a when-idle message.
+    expect(h.deliver).not.toHaveBeenCalled()
+
+    h.service.handleIdleEdge({ ptyId: PTY, worktreeId: WORKTREE, leafId: 'leaf', tabId: 'tab' })
+    await vi.advanceTimersByTimeAsync(IDLE_EDGE_SETTLE_MS)
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'on idle')
+  })
+
+  it('sends only one when-idle message per idle edge', async () => {
+    const h = makeHarness()
+    h.service.add({ worktreeId: WORKTREE, text: 'first', timing: { kind: 'when-idle' } })
+    h.advance(1)
+    h.service.add({ worktreeId: WORKTREE, text: 'second', timing: { kind: 'when-idle' } })
+    h.service.start()
+
+    h.service.handleIdleEdge({ ptyId: PTY, worktreeId: WORKTREE, leafId: 'leaf', tabId: 'tab' })
+    await vi.advanceTimersByTimeAsync(IDLE_EDGE_SETTLE_MS)
+    expect(h.deliver).toHaveBeenCalledTimes(1)
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'first')
+
+    h.service.handleIdleEdge({ ptyId: PTY, worktreeId: WORKTREE, leafId: 'leaf', tabId: 'tab' })
+    await vi.advanceTimersByTimeAsync(IDLE_EDGE_SETTLE_MS)
+    expect(h.deliver).toHaveBeenCalledTimes(2)
+    expect(h.deliver).toHaveBeenLastCalledWith(HANDLE, 'second')
+  })
+
+  it('retries a permission-prompt rejection, then fails once attempts run out', async () => {
+    const h = makeHarness()
+    h.deliver.mockRejectedValue(new Error('terminal_guard_permission'))
+    h.service.add({
+      worktreeId: WORKTREE,
+      text: 'wait',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    h.advance(2000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(h.rows()[0]).toMatchObject({ status: 'pending' })
+
+    for (let attempt = 1; attempt < MAX_DELIVERY_ATTEMPTS; attempt++) {
+      await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
+    }
+    expect(h.rows()[0]).toMatchObject({ status: 'failed', failureReason: 'send-failed' })
+  })
+
+  it('fails immediately when no agent is running rather than typing into a shell', async () => {
+    const h = makeHarness()
+    h.deliver.mockRejectedValue(new Error('terminal_guard_no_agent'))
+    h.service.add({ worktreeId: WORKTREE, text: 'ls', timing: { kind: 'at', sendAt: NOW + 1000 } })
+    h.advance(2000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(h.rows()[0]).toMatchObject({ status: 'failed', failureReason: 'no-agent' })
+  })
+
+  it('sendNow revives a failed row and delivers it', async () => {
+    const h = makeHarness({ pane: null })
+    const added = h.service.add({
+      worktreeId: WORKTREE,
+      text: 'retry me',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    h.advance(2000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(h.rows()[0]).toMatchObject({ status: 'failed' })
+
+    // A failed row must not be inert: send-now is the whole point of keeping it.
+    const revived = makeHarness()
+    revived.service.add({ worktreeId: WORKTREE, text: 'retry me', timing: { kind: 'when-idle' } })
+    await revived.service.sendNow('msg-1')
+    expect(revived.deliver).toHaveBeenCalledWith(HANDLE, 'retry me')
+    expect(added.id).toBe('msg-1')
+  })
+
+  it('rejects a schedule beyond the one-year horizon', () => {
+    const h = makeHarness()
+    expect(() =>
+      h.service.add({
+        worktreeId: WORKTREE,
+        text: 'far future',
+        timing: { kind: 'at', sendAt: NOW + 400 * 24 * 60 * 60 * 1000 }
+      })
+    ).toThrow('send-at-beyond-horizon')
+  })
+
+  it('update reschedules a missed row back to pending', async () => {
+    const h = makeHarness({ pane: null })
+    h.service.add({
+      worktreeId: WORKTREE,
+      text: 'oops',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    h.advance(2000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(h.rows()[0]).toMatchObject({ status: 'failed' })
+
+    h.service.update('msg-1', { timing: { kind: 'at', sendAt: NOW + 3_600_000 } })
+    expect(h.rows()[0]).toMatchObject({ status: 'pending' })
+    // Deleted, not set to undefined — the row must serialize back to disk clean.
+    expect(h.rows()[0]).not.toHaveProperty('failureReason')
+  })
+})

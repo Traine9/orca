@@ -17,6 +17,7 @@ const {
   registerComputerUsePermissionHandlersMock,
   registerSettingsHandlersMock,
   registerAgentAutoResumeHandlersMock,
+  registerScheduledMessageHandlersMock,
   registerRateLimitWatcherHandlersMock,
   registerKeybindingHandlersMock,
   registerTelemetryHandlersMock,
@@ -87,6 +88,7 @@ const {
   registerComputerUsePermissionHandlersMock: vi.fn(),
   registerSettingsHandlersMock: vi.fn(),
   registerAgentAutoResumeHandlersMock: vi.fn(),
+  registerScheduledMessageHandlersMock: vi.fn(),
   registerRateLimitWatcherHandlersMock: vi.fn(),
   registerKeybindingHandlersMock: vi.fn(),
   registerTelemetryHandlersMock: vi.fn(),
@@ -235,6 +237,10 @@ vi.mock('../settings', () => ({
 
 vi.mock('../agent-auto-resume', () => ({
   registerAgentAutoResumeHandlers: registerAgentAutoResumeHandlersMock
+}))
+
+vi.mock('../scheduled-messages', () => ({
+  registerScheduledMessageHandlers: registerScheduledMessageHandlersMock
 }))
 
 vi.mock('../rate-limit-watcher', () => ({
@@ -564,6 +570,7 @@ describe('registerCoreHandlers', () => {
     expect(registerDashboardPopoutHandlersMock).toHaveBeenCalledWith(store, undefined)
     expect(registerTerminalPreviewHandlersMock).toHaveBeenCalledWith(runtime)
     expect(registerSettingsHandlersMock).toHaveBeenCalledWith(store, agentAwakeService)
+    expect(registerScheduledMessageHandlersMock).toHaveBeenCalled()
     expect(registerRateLimitWatcherHandlersMock).toHaveBeenCalledWith(
       store,
       expect.objectContaining({ onArmed: expect.any(Function) })

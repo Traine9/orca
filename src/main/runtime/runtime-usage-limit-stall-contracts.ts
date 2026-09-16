@@ -35,6 +35,16 @@ export type UsageLimitStallEvent =
       exitCode: number
     }
 
+/** A leaf's agent transitioned to a *live* idle — the same edge that authorizes
+ *  orchestration push delivery. Consumers may write to the pane on this signal,
+ *  which is why liveness is part of the edge (see deliverPendingMessagesForLeaf). */
+export type AgentIdleEdgeEvent = {
+  ptyId: string
+  worktreeId: string
+  leafId: string
+  tabId: string
+}
+
 /** Live re-verification of a PTY's usage-limit stall, read against the current
  *  tail just before the service acts (never against stale history). */
 export type UsageLimitStallSnapshot = {

@@ -50,6 +50,7 @@ export {
   type TerminalTailWaitState
 } from './terminal-wait-tail-state'
 export type {
+  AgentIdleEdgeEvent,
   UsageLimitStallEvent,
   UsageLimitStallSnapshot
 } from './runtime-usage-limit-stall-contracts'

@@ -103,7 +103,8 @@ export function attachMainWindowCoreServices(
     state.pluginMarketplaceService && state.pluginMarketplaceInstaller
       ? { marketplace: state.pluginMarketplaceService, installer: state.pluginMarketplaceInstaller }
       : undefined,
-    state.agentAutoResumeService ?? undefined
+    state.agentAutoResumeService ?? undefined,
+    state.scheduledMessageService ?? undefined
   )
   automations.setWebContents(window.webContents)
   automations.start()

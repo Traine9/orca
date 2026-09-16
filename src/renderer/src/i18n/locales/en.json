@@ -5769,7 +5769,9 @@
           "sleepWithDescendantsDescription": "Close active panels in this workspace and every nested descendant to free up memory and CPU.",
           "deleteWithDescendants": "Delete with Descendants…",
           "rateLimitWatcher": "Rate limit watcher",
-          "rateLimitWatcherDescription": "Wait for the provider usage limit to reset and resume this workspace's agent automatically."
+          "rateLimitWatcherDescription": "Wait for the provider usage limit to reset and resume this workspace's agent automatically.",
+          "scheduledMessagesWithCount": "Schedule message… ({{pending}} pending)",
+          "scheduledMessages": "Schedule message…"
         },
         "WorktreeList": {
           "7a8b9c0d1e": "Update required",
@@ -6466,7 +6468,9 @@
           "copied": "Command copied",
           "retry": "Retry now",
           "restored": "Git is working again. Worktrees refreshed."
-        }
+        },
+        "scheduledMessagesBadgeProblem": "A scheduled message needs attention. Open Automations to send or reschedule it.",
+        "scheduledMessagesBadgePending": "Scheduled messages are queued for this workspace’s agent."
       },
       "shared": {
         "useDaemonActions": {
@@ -17388,6 +17392,40 @@
           "tooltip": "{{n}} {{noun}} paused · {{detail}}",
           "waiting": "waiting for reset"
         }
+      },
+      "scheduledMessages": {
+        "errorEmpty": "Enter a message to send.",
+        "errorPast": "Pick a time in the future.",
+        "errorHorizon": "Messages can be scheduled up to a year ahead.",
+        "editTitle": "Edit scheduled message",
+        "composeTitle": "Schedule a message",
+        "composeDescription": "Orca types this into the workspace's agent when it comes due.",
+        "messageLabel": "Message",
+        "whenLabel": "When",
+        "atDateTime": "At a date and time",
+        "whenIdleOption": "When the agent is idle",
+        "whenIdleHint": "Delivers the next time this workspace’s agent finishes working.",
+        "atTimeHint": "Sends at that time even if the agent is mid-task, interrupting it.",
+        "cancel": "Cancel",
+        "save": "Save",
+        "schedule": "Schedule",
+        "sectionTitle": "Scheduled messages",
+        "sectionSubtitle": "One-time messages Orca will type into a workspace’s agent. Schedule them from a workspace’s right-click menu.",
+        "unknownWorkspace": "Unknown workspace",
+        "sendNow": "Send now",
+        "rowActions": "Scheduled message actions",
+        "edit": "Edit…",
+        "delete": "Delete",
+        "todayAt": "Today {{time}}",
+        "unknownTime": "an unknown time",
+        "inLessThanAMinute": "in under a minute",
+        "whenIdle": "When the agent is idle",
+        "dueNow": "{{absolute}} · due now",
+        "statusUsageLimitOutlasted": "Missed — the usage limit lasted too long to still send this",
+        "statusMissed": "Missed — Orca was closed when it came due",
+        "statusNoPane": "Failed — the workspace had no open terminal",
+        "statusNoAgent": "Failed — no agent was running in that terminal",
+        "statusFailed": "Failed to send"
       }
     },
     "i18n": {
