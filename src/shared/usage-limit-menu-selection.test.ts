@@ -96,6 +96,44 @@ describe('parseUsageLimitMenu', () => {
     expect(isResetOptionSelected(tail)).toBe(true)
   })
 
+  it('refuses a lone row that is not inside the CLI chooser frame', () => {
+    // A single numbered row satisfies every other liveness test on its own, so
+    // any output ending in one used to read as live and plan zero arrows — Enter
+    // into whatever the pane was really showing. Both of these are text an agent
+    // prints while working: a Markdown quote, and a `cat` of the very notes that
+    // document the chooser.
+    const quoted = "$ sed -n '10p' notes/auto-resume.md\n> 1. Stop and wait for limit to reset\n"
+    const echoed =
+      'The retained tail then holds one row:\n  ❯ 1. Stop and wait for limit to reset\n'
+    for (const tail of [quoted, echoed]) {
+      expect(readUsageLimitMenu(tail).state).toBe('unreadable')
+      expect(isLiveUsageLimitMenu(tail)).toBe(false)
+      expect(planUsageLimitResetSelection(tail)).toBeNull()
+    }
+  })
+
+  it('reads a lone row under the heading alone, without the rule above it', () => {
+    const tail = '  What do you want to do?\n\n  ❯ 1. Stop and wait for limit to reset\n'
+    expect(isLiveUsageLimitMenu(tail)).toBe(true)
+    expect(planUsageLimitResetSelection(tail)).toBe(0)
+  })
+
+  it('refuses a lone row that opens the tail, with nothing above it to read', () => {
+    expect(readUsageLimitMenu('❯ 1. Stop and wait for limit to reset').state).toBe('unreadable')
+  })
+
+  it('searches a few lines above the run for the heading, but not the whole tail', () => {
+    const row = '  ❯ 1. Stop and wait for limit to reset'
+    const between = (count: number): string =>
+      ['  What do you want to do?', ...Array.from({ length: count }, () => 'notice'), '', row].join(
+        '\n'
+      )
+    // Blank padding is skipped; only non-blank lines spend the budget, and a
+    // banner between the heading and the options is why there is one at all.
+    expect(isLiveUsageLimitMenu(between(3))).toBe(true)
+    expect(readUsageLimitMenu(between(4)).state).toBe('unreadable')
+  })
+
   it('refuses a lone option that is not the highlighted row', () => {
     // Without a highlight there is nothing to confirm, and the rows the tail
     // dropped could put anything under the cursor — including a paid one.
@@ -309,5 +347,20 @@ describe('isResetOptionSelected', () => {
     expect(isResetOptionSelected(RESET_FIRST)).toBe(true)
     expect(isResetOptionSelected(RESET_LAST)).toBe(false)
     expect(isResetOptionSelected('no menu here')).toBe(false)
+  })
+
+  it('confirms a lone row left by the arrows, which no first reading would trust', () => {
+    // Arrowing up to row 1 repaints the chooser and parks the cursor there, so
+    // the read-back can find one row and a heading the CLI never reprinted.
+    // Refusing here would abandon a chooser this code had already read as live
+    // and just moved the highlight in — the 12-hour park the frame rule exists
+    // to prevent, caused by the frame rule.
+    const afterArrows = 'Claude usage limit reached.\n❯ 1. Stop and wait for the limit to reset'
+    expect(isLiveUsageLimitMenu(afterArrows)).toBe(false)
+    expect(isResetOptionSelected(afterArrows)).toBe(true)
+  })
+
+  it('still refuses a lone row whose label is not the reset one', () => {
+    expect(isResetOptionSelected('some output\n❯ 1. Upgrade your plan')).toBe(false)
   })
 })

@@ -98,20 +98,57 @@ function readBelowChooser(linesBelow: string[]): 'chrome' | 'moved-on' | 'unreco
   return 'chrome'
 }
 
+/** The chooser's heading. It cannot prove a chooser — any agent that prints this
+ *  line above a numbered row forges it, and `cat`-ing this repository's own
+ *  design notes does exactly that. What it buys is that a bare row is no longer
+ *  enough, so the accidents (a grep hit, a log line, a Markdown quote of one
+ *  option) stop arming the watcher. The rule the CLI draws above the heading is
+ *  deliberately not a second anchor: it sits further from the options, so it
+ *  never decides a real chooser, while a Markdown divider forges it. */
+const CHOOSER_HEADING_RE = /what\s*do\s*you\s*want\s*to\s*do/i
+/** How many non-blank lines above the run may be searched (blank padding is
+ *  skipped, not counted). The captured frame puts the heading one non-blank line
+ *  up; the budget is larger because a banner can sit between. */
+const MAX_LINES_ABOVE_CHOOSER = 4
+
+/** Whether the CLI's chooser heading sits just above the numbered run. */
+function hasChooserHeadingAbove(lines: string[], startIndex: number): boolean {
+  return lines
+    .slice(0, startIndex + 1)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .slice(-MAX_LINES_ABOVE_CHOOSER)
+    .some((line) => CHOOSER_HEADING_RE.test(line))
+}
+
+export type UsageLimitMenuReadOptions = {
+  /** Accept the highlighted row as the whole chooser even without the heading
+   *  above it. Only for a read-back moments after this code pressed arrows into a
+   *  chooser it had just read as live: that sequence is the liveness evidence, and
+   *  the repaint parks the cursor on the newly highlighted row, which can leave it
+   *  as the only row the tail still holds. Never set it for a first reading. */
+  trustSingleRow?: boolean
+}
+
 /** Read the trailing usage-limit chooser out of a terminal tail. Only the last
  *  contiguous run of numbered options counts, and only while it still sits at
  *  the bottom of the tail, so a menu that scrolled into history — dismissed, or
  *  overtaken by resumed agent output — cannot be mistaken for the live one. */
-export function readUsageLimitMenu(tailText: string): UsageLimitMenuReading {
+export function readUsageLimitMenu(
+  tailText: string,
+  { trustSingleRow = false }: UsageLimitMenuReadOptions = {}
+): UsageLimitMenuReading {
   const lines = tailText.split('\n')
   const collected: { number: number; option: UsageLimitMenuOption }[] = []
   const below: string[] = []
+  let aboveIndex = -1
 
   for (let index = lines.length - 1; index >= 0; index--) {
     const line = lines[index] ?? ''
     const match = NUMBERED_RE.exec(line)
     if (!match) {
       if (collected.length > 0) {
+        aboveIndex = index
         break
       }
       const trimmed = line.trim()
@@ -160,12 +197,24 @@ export function readUsageLimitMenu(tailText: string): UsageLimitMenuReading {
   if (options.filter((option) => option.selected).length !== 1) {
     return { state: 'unreadable' }
   }
+  // A run of several rows is self-evidencing: 1..n contiguous, exactly one of
+  // them highlighted, nothing but chrome below. A single row is not — one line
+  // of ordinary output can satisfy all of that — so it has to be sitting under
+  // the CLI's own heading. Unreadable rather than dismissed: the row may well be
+  // a real chooser whose heading scrolled out, and neither pressing Enter nor
+  // typing a scheduled message into it is safe.
+  if (options.length === 1 && !trustSingleRow && !hasChooserHeadingAbove(lines, aboveIndex)) {
+    return { state: 'unreadable' }
+  }
   return { state: 'live', options }
 }
 
 /** The chooser's options when it is live, else null. */
-export function parseUsageLimitMenu(tailText: string): UsageLimitMenuOption[] | null {
-  const reading = readUsageLimitMenu(tailText)
+export function parseUsageLimitMenu(
+  tailText: string,
+  options?: UsageLimitMenuReadOptions
+): UsageLimitMenuOption[] | null {
+  const reading = readUsageLimitMenu(tailText, options)
   return reading.state === 'live' ? reading.options : null
 }
 
@@ -214,9 +263,12 @@ export function isUsageLimitMenuDismissed(tailText: string): boolean {
 }
 
 /** Whether the cursor currently rests on the reset option. Read back after the
- *  arrows land, so Enter is only ever pressed against a confirmed highlight. */
+ *  arrows land, so Enter is only ever pressed against a confirmed highlight.
+ *  This read alone never arms anything: it follows arrows pressed into a chooser
+ *  already read as live, so a lone highlighted row is trusted here — the arrows
+ *  themselves are what truncated the menu down to it. */
 export function isResetOptionSelected(tailText: string): boolean {
-  const options = parseUsageLimitMenu(tailText)
+  const options = parseUsageLimitMenu(tailText, { trustSingleRow: true })
   if (!options) {
     return false
   }
