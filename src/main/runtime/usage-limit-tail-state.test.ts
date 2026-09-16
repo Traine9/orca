@@ -141,28 +141,34 @@ function snapshotSeedWaitText(rows: string[], cursorRowsFromBottom: number): str
 }
 
 describe('a usage-limit chooser restored from a renderer snapshot', () => {
+  // The rows the CLI paints above the options, copied from the captured frame
+  // above. They matter to the parser, not just to the eye: one numbered row on
+  // its own is indistinguishable from output that quotes the menu, so the
+  // single-row reading only counts inside this frame.
+  const frame = ['─────────────────────────────', '  What do you want to do?', '']
   const chrome = [
     'Enter to confirm · Esc to cancel',
     '⏵⏵ auto mode on (shift+tab to cycle)',
     '5h (14%) 18:50 | 7d (31%) Wed 12:00'
   ]
+  const menu = ['❯ 1. Stop and wait for limit to reset', '  2. Upgrade your plan']
+  const rows = [...frame, ...menu, '', ...chrome]
 
   it('reads as live when the cursor was parked on the highlighted row', () => {
-    const rows = ['❯ 1. Stop and wait for limit to reset', '  2. Upgrade your plan', '', ...chrome]
-    const waitText = snapshotSeedWaitText(rows, rows.length - 1)
+    const waitText = snapshotSeedWaitText(rows, rows.length - frame.length - 1)
     expect(waitText).not.toContain('Enter to confirm')
+    expect(waitText).not.toContain('Upgrade your plan')
     expect(isLiveUsageLimitMenu(waitText)).toBe(true)
   })
 
   it('reads as live when the cursor sat at the bottom under the chrome', () => {
-    const rows = ['❯ 1. Stop and wait for limit to reset', '  2. Upgrade your plan', '', ...chrome]
     const waitText = snapshotSeedWaitText(rows, 0)
     expect(waitText).toContain('Enter to confirm')
     expect(isLiveUsageLimitMenu(waitText)).toBe(true)
   })
 
   it('reads as dead once the prompt box owns the cursor beneath a dismissed chooser', () => {
-    const rows = [
+    const dismissedRows = [
       '❯ 1. Stop and wait for limit to reset',
       '  2. Upgrade your plan',
       'Enter to confirm · Esc to cancel',
@@ -174,7 +180,7 @@ describe('a usage-limit chooser restored from a renderer snapshot', () => {
     ]
     // Cursor parked in the prompt box: the rows beneath it are dropped, so the
     // four lines left under the chooser fit the old budget and read as live.
-    const waitText = snapshotSeedWaitText(rows, 2)
+    const waitText = snapshotSeedWaitText(dismissedRows, 2)
     expect(waitText).not.toContain('auto mode')
     expect(waitText).toContain('│ >')
     expect(isLiveUsageLimitMenu(waitText)).toBe(false)
