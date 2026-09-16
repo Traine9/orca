@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { MAX_RATE_LIMIT_WATCHER_TABS } from '../shared/rate-limit-watcher-types'
+import {
+  MAX_RATE_LIMIT_WATCHER_TABS,
+  normalizeRateLimitWatcherTabs
+} from '../shared/rate-limit-watcher-types'
 import { createStore, testState } from './persistence-test-harness'
 
 vi.mock('electron', () => ({
@@ -53,5 +56,31 @@ describe('rate limit watcher armed set', () => {
     expect(armed).toHaveLength(MAX_RATE_LIMIT_WATCHER_TABS)
     expect(armed[0]).toBe('tab-1')
     expect(armed.at(-1)).toBe(`tab-${MAX_RATE_LIMIT_WATCHER_TABS}`)
+  })
+
+  // The writer only trims the list it is rewriting, so a file edited by hand —
+  // or written before the cap existed — has to be brought back in bounds on load.
+  describe('load-time normalization', () => {
+    it('drops entries that are not usable tab ids', () => {
+      expect(normalizeRateLimitWatcherTabs(['tab-1', 42, null, '', 'tab-2', 'tab-1'])).toEqual([
+        'tab-1',
+        'tab-2'
+      ])
+    })
+
+    it('falls back to empty for anything that is not an array', () => {
+      expect(normalizeRateLimitWatcherTabs(undefined)).toEqual([])
+      expect(normalizeRateLimitWatcherTabs('tab-1')).toEqual([])
+    })
+
+    it('trims an over-long list to the newest ids', () => {
+      const oversized = Array.from(
+        { length: MAX_RATE_LIMIT_WATCHER_TABS + 5 },
+        (_entry, index) => `tab-${index}`
+      )
+      const normalized = normalizeRateLimitWatcherTabs(oversized)
+      expect(normalized).toHaveLength(MAX_RATE_LIMIT_WATCHER_TABS)
+      expect(normalized.at(-1)).toBe(oversized.at(-1))
+    })
   })
 })
