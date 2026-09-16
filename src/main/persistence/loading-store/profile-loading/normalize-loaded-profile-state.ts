@@ -6,6 +6,7 @@ import { normalizeFolderWorkspaces } from '../../../../shared/folder-workspaces/
 import { normalizeOrcadMigrationEvictedReceipts } from '../../../../shared/orcad-migration/orcad-migration-evicted-receipts'
 import { normalizeOrcadMigrationImportReceipts } from '../../../../shared/orcad-migration/orcad-migration-manifest-validation'
 import { normalizeOrcadMigrationStagedCatalogs } from '../../../../shared/orcad-migration/orcad-migration-staged-catalog-validation'
+import { normalizeRateLimitWatcherTabs } from '../../../../shared/rate-limit-watcher-types'
 import { normalizeWorkspaceLineageByChildKey } from '../../applying-settings/ui-interaction-merge'
 import { dropInferredParentsOverFolderParents } from '../workspace-lineage/folder-parent-lineage-persistence'
 import { normalizeCrossStoreLineageByChildKey } from '../../../../shared/worktree/cross-store-lineage-records'
@@ -117,6 +118,10 @@ export function normalizeLoadedProfileState(
       parsed.migrationUnsupportedPtyEntries
     ),
     legacyPaneKeyAliasEntries: normalizeLegacyPaneKeyAliasEntries(parsed.legacyPaneKeyAliasEntries),
+    // Conditional so a file that never armed the watcher does not gain the key.
+    ...(parsed.rateLimitWatcherTabs === undefined
+      ? {}
+      : { rateLimitWatcherTabs: normalizeRateLimitWatcherTabs(parsed.rateLimitWatcherTabs) }),
     automations: Array.isArray(parsed.automations) ? parsed.automations : [],
     automationRuns: normalizeLoadedAutomationRuns(parsed, markNeedsSave),
     orcadMigrationImportReceipts: normalizeOrcadMigrationImportReceipts(
