@@ -74,7 +74,9 @@ export const mainProcessState = {
   headlessBrowserDisplayAvailable: false,
   starNag: null as StarNagService | null,
   agentAwakeService: null as AgentAwakeService | null,
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: an empty composition-root slot filled during startup, declared the way every other slot in this object is.
   agentAutoResumeService: null as AgentAutoResumeService | null,
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the same empty-slot declaration, for the stall subscription torn down with that service.
   unsubscribeUsageLimitStall: null as (() => void) | null,
   uninstallRepoMaintenanceIdleGate: null as (() => Promise<void>) | null,
   repoMaintenanceShutdown: Promise.resolve() as Promise<void>,
