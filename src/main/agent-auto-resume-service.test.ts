@@ -3,6 +3,8 @@ import {
   AgentAutoResumeService,
   BANNER_RESET_GRACE_MS,
   BANNER_UNKNOWN_RESET_DELAY_MS,
+  INDETERMINATE_RETRY_DELAY_MS,
+  MAX_INDETERMINATE_RETRIES,
   MAX_RESUME_ATTEMPTS,
   POST_SEND_VERIFY_MS,
   type AgentAutoResumeNotification
@@ -68,6 +70,7 @@ function makeHarness(providerResetAt: number | null = null) {
       resetsAt: null,
       detectedAt: 0,
       actionable: stall.signalled && (menu === null || menu.state === 'live'),
+      indeterminate: stall.signalled && menu?.state === 'unreadable',
       blocksDelivery: stall.signalled && menu?.state !== 'dismissed',
       agentWorking: stall.agentWorking,
       waitText: stall.waitText
@@ -132,6 +135,78 @@ describe('AgentAutoResumeService', () => {
     expect(service.getSnapshot().entries).toHaveLength(0)
   })
 
+  it('re-reads an unreadable chooser instead of abandoning the stall', async () => {
+    const { service, chooseMenuReset, notify, stall } = makeHarness()
+    stall.reason = 'usage-limit-menu'
+    // One row with nothing above it to prove a chooser: the parser can classify
+    // this frame neither way. A parked agent emits nothing that would re-detect
+    // it, so dropping the entry here would park it for the whole limit window.
+    stall.waitText = '❯ 1. Stop and wait for limit to reset'
+    service.handleEvent(detectedEvent({ reason: 'usage-limit-menu' }))
+
+    await vi.advanceTimersByTimeAsync(MENU_GRACE_MS)
+    expect(chooseMenuReset).not.toHaveBeenCalled()
+    expect(service.getSnapshot().entries).toHaveLength(1)
+
+    stall.waitText = MENU_TAIL
+    await vi.advanceTimersByTimeAsync(INDETERMINATE_RETRY_DELAY_MS)
+    expect(chooseMenuReset).toHaveBeenCalledOnce()
+    expect(notify).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'failed' }))
+  })
+
+  it('gives up — and says so — once the screen stays unreadable for the whole budget', async () => {
+    const { service, chooseMenuReset, notify, stall } = makeHarness()
+    stall.reason = 'usage-limit-menu'
+    stall.waitText = '❯ 1. Stop and wait for limit to reset'
+    service.handleEvent(detectedEvent({ reason: 'usage-limit-menu' }))
+
+    await vi.advanceTimersByTimeAsync(
+      MENU_GRACE_MS + INDETERMINATE_RETRY_DELAY_MS * (MAX_INDETERMINATE_RETRIES + 1)
+    )
+    expect(chooseMenuReset).not.toHaveBeenCalled()
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'failed' }))
+    expect(service.getSnapshot().entries).toHaveLength(0)
+  })
+
+  it('re-arms on a corrected reset time carried by a later banner', async () => {
+    // The runtime re-parses the reset on every edge. Keeping the first one would
+    // resend `continue` while the limit still had two minutes left to run.
+    const { service, sendKeys } = makeHarness()
+    const firstResetAt = Date.now() + 60_000
+    service.handleEvent(detectedEvent({ resetsAt: firstResetAt }))
+    service.handleEvent(detectedEvent({ resetsAt: firstResetAt + 120_000 }))
+    expect(service.getSnapshot().entries).toHaveLength(1)
+
+    await vi.advanceTimersByTimeAsync(60_000 + BANNER_RESET_GRACE_MS)
+    expect(sendKeys).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(sendKeys).toHaveBeenCalledOnce()
+  })
+
+  it('leaves a replacement stall alone when the menu press gives up', async () => {
+    const { service, sendKeys, chooseMenuReset, notify, stall } = makeHarness()
+    stall.reason = 'usage-limit-menu'
+    chooseMenuReset.mockImplementation(() => {
+      // The arrow/Enter sequence awaits a repaint pause, and a banner can land in
+      // that window. It is a different stall with its own armed timer, so the
+      // give-up below must not delete it by ptyId or notify about it.
+      stall.reason = 'usage-limit-banner'
+      service.handleEvent(
+        detectedEvent({ reason: 'usage-limit-banner', resetsAt: Date.now() + 1000 })
+      )
+      return Promise.resolve(false)
+    })
+    service.handleEvent(detectedEvent({ reason: 'usage-limit-menu' }))
+
+    await vi.advanceTimersByTimeAsync(MENU_GRACE_MS)
+    expect(notify).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'failed' }))
+    expect(service.getSnapshot().entries).toHaveLength(1)
+
+    await vi.advanceTimersByTimeAsync(1000 + BANNER_RESET_GRACE_MS)
+    expect(sendKeys).toHaveBeenCalledWith(HANDLE, { text: 'continue', enter: true })
+  })
+
   it('presses a live menu even while the title still shows the working spinner', async () => {
     // The chooser interrupts a turn without ending it, so the interrupted
     // turn's spinner stays in the title for as long as the menu sits there.
@@ -148,13 +223,19 @@ describe('AgentAutoResumeService', () => {
   it('stops quietly when the chooser was already handled by a human', async () => {
     // Dismissed-chooser text lingers in the retained tail (still `signalled`),
     // but resumed agent output below it means there is nothing left to press.
+    // Transcript bullets and the input box are the parser's positive proof; an
+    // unrecognised screen is a different case, re-read rather than dropped.
     const { service, chooseMenuReset, notify, stall } = makeHarness()
     stall.reason = 'usage-limit-menu'
     service.handleEvent(detectedEvent({ reason: 'usage-limit-menu' }))
     stall.agentWorking = true
     stall.waitText = [
       MENU_TAIL,
-      ...Array.from({ length: 9 }, (_, index) => `agent output line ${index + 1}`)
+      '⏺ Edit(src/main/index.ts)',
+      '⎿  Updated src/main/index.ts with 2 additions',
+      '╭─────────────────────────────╮',
+      '│ >                           │',
+      '╰─────────────────────────────╯'
     ].join('\n')
 
     await vi.advanceTimersByTimeAsync(MENU_GRACE_MS)

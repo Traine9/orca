@@ -68,10 +68,14 @@ export class OrcaRuntimeWithApplyTrackedPtyTitle extends OrcaRuntimeWithGetUnper
       // title stream, which lies for the whole time a chooser is up. Everything
       // else does clear here, including the CLI's own auto-continue: the agent
       // going back to work IS that wait having succeeded.
+      // Read through `?.` like every other reader of this field does: these split
+      // files are `@ts-nocheck`, so a record that never got the field would make
+      // a `!== null` test true and then throw on `.reason`.
+      const stallReason = pty.usageLimitStall?.reason
       if (
         agentStatus === 'working' &&
-        pty.usageLimitStall !== null &&
-        pty.usageLimitStall.reason !== 'usage-limit-menu'
+        stallReason !== undefined &&
+        stallReason !== 'usage-limit-menu'
       ) {
         this.clearPtyUsageLimitStall(pty, ptyId)
       }

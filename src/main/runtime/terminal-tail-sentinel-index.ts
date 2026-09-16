@@ -12,7 +12,7 @@ import { TERMINAL_WAIT_BLOCKED_SENTINEL_RE } from './terminal-wait-detection'
 // pin every later wait-check to the full 256 KiB rebuild + scan for the rest of
 // the session — exactly the cost the tail-shape fast path exists to avoid.
 export const TERMINAL_USAGE_LIMIT_SENTINEL_RE =
-  /limit\s*to\s*reset|more\s*usage|(?:hit|reach)(?:ing|ed)?\s*your|limit\s*(?:has\s*been\s*)?reached|limit\s*has\s*reset|automatic\s*continue/i
+  /limit\s*to\s*reset|more\s*usage|(?:hit(?:ting)?|reach(?:ing|ed)?)\s*your|limit\s*(?:has\s*been\s*)?reached|limit\s*has\s*reset|automatic\s*continue/i
 
 /** Retained-line positions matching each tail sentinel, in ascending order. */
 type TerminalTailSentinelIndex = {

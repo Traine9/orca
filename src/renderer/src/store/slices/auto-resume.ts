@@ -17,12 +17,28 @@ const RATE_LIMITED_RESUMES_KEY = 'auto.lib.auto-resume.rate-limited-resumes'
 // card/status-bar surfaces from it.
 export type AutoResumeSlice = {
   autoResumeEntries: AgentAutoResumeEntry[]
+  /** Bumped by every pushed snapshot, so a mount-time hydrate that resolves late
+   *  cannot restore the tracked list as it stood before the push. */
+  autoResumeRevision: number
   setAutoResumeSnapshot: (snapshot: AgentAutoResumeSnapshot) => void
+  /** Apply a one-shot `get()` result, unless a push already landed. */
+  hydrateAutoResumeSnapshot: (snapshot: AgentAutoResumeSnapshot, revision: number) => void
 }
 
 export const createAutoResumeSlice: StateCreator<AppState, [], [], AutoResumeSlice> = (set) => ({
   autoResumeEntries: [],
-  setAutoResumeSnapshot: (snapshot) => set({ autoResumeEntries: snapshot.entries })
+  autoResumeRevision: 0,
+  setAutoResumeSnapshot: (snapshot) =>
+    set((state) => ({
+      autoResumeEntries: snapshot.entries,
+      autoResumeRevision: (state.autoResumeRevision ?? 0) + 1
+    })),
+  hydrateAutoResumeSnapshot: (snapshot, revision) =>
+    set((state) =>
+      (state.autoResumeRevision ?? 0) === revision
+        ? { autoResumeEntries: snapshot.entries, autoResumeRevision: revision + 1 }
+        : {}
+    )
 })
 
 export type WorktreeRateLimitStatus = {
