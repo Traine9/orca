@@ -216,7 +216,13 @@ export class OrcaRuntimeWithOnPtyExit extends OrcaRuntimeWithOnClientDisconnecte
       // Why: a PTY dying mid-stall can't be resumed by keystrokes; hand the
       // dead-PTY case to the service (which notifies / defers to the sleeping-
       // agent resume path) before the record is pruned.
-      if (pty.usageLimitStall) {
+      //
+      // Only once the death is certified, though. An abnormal SSH exit keeps the
+      // surface alive for reconnection, and the agent on the far side is very
+      // likely still sitting at the same limit — reporting it dead here would
+      // notify the user about a pane that comes back, and drop the stall that
+      // nothing will re-detect (a parked agent prints nothing on reconnect).
+      if (pty.usageLimitStall && !preservesAbnormalSshSurface) {
         this.emitUsageLimitStall({
           kind: 'exited',
           ptyId,

@@ -78,10 +78,6 @@ function installBeforeQuitHandler(): void {
     state.unsubscribeAgentAwakeStatusChanges = null
     state.agentAwakeService?.dispose()
     state.agentAwakeService = null
-    state.unsubscribeUsageLimitStall?.()
-    state.unsubscribeUsageLimitStall = null
-    state.agentAutoResumeService?.dispose()
-    state.agentAutoResumeService = null
     // Why wait but not uninstall: a renderer beforeunload can still veto this
     // quit, and tearing the sweep down here would kill it for the rest of the
     // session. `isQuitting` already vetoes new attempts; will-quit does the teardown.
@@ -112,6 +108,13 @@ function installWillQuitHandler(): void {
     }
     // A renderer can veto before-quit; push must survive until quit is committed.
     state.desktopPushService?.stop()
+    // Same reason, and nothing recreates these: the services are built once during
+    // ready startup, so disposing them in before-quit left a vetoed quit running
+    // for the rest of the session with no stall subscription and no armed waits.
+    state.unsubscribeUsageLimitStall?.()
+    state.unsubscribeUsageLimitStall = null
+    state.agentAutoResumeService?.dispose()
+    state.agentAutoResumeService = null
     state.unsubscribeSystemResumeBroadcast?.()
     state.unsubscribeSystemResumeBroadcast = null
     // Why: renderer guards can still cancel before this committed phase; `log stream` must survive those vetoes.

@@ -239,6 +239,25 @@
     "copy": "Copy",
     "selectAll": "Select All"
   },
+  "agentAutoResume": {
+    "notification": {
+      "resetTimeUnknown": "the reset time",
+      "detected": {
+        "title": "Agent rate-limited",
+        "bodyAt": "Orca will auto-resume it at {{when}}.",
+        "bodyMenuAt": "Orca will answer the rate-limit prompt at {{when}}, then wait out the limit.",
+        "bodyUnknownReset": "Orca will auto-resume it when the limit resets."
+      },
+      "deadPty": {
+        "title": "Rate-limited agent exited",
+        "body": "The agent process exited while rate-limited. Reopen its worktree to resume the session."
+      },
+      "failed": {
+        "title": "Auto-resume failed",
+        "body": "Orca couldn't resume the rate-limited agent. Resume it manually."
+      }
+    }
+  },
   "tray": {
     "openOrca": "Open Orca",
     "quit": "Quit",
@@ -572,6 +591,9 @@
       }
     },
     "lib": {
+      "worktreeStatus": {
+        "rateLimited": "Rate-limited"
+      },
       "agent": {
         "catalog": {
           "5dff448636": "OpenClaw",
