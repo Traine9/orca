@@ -86,7 +86,7 @@ const StatusIndicator = React.memo(function StatusIndicator({
         className={cn('inline-flex h-3 w-3 shrink-0 items-center justify-center', className)}
         {...rest}
       >
-        <Hourglass className="size-2.5 text-amber-500" aria-hidden="true" />
+        <Hourglass className="size-2.5 text-annotation-highlight" aria-hidden="true" />
       </span>
     )
   } else {

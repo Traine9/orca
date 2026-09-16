@@ -210,6 +210,8 @@ describe('extractUsageLimitResetAt', () => {
     ])
     expect(resetsAt).not.toBeNull()
     // June (month index 5) proves it anchored to the newer banner, not January.
-    expect(new Date(resetsAt as number).getMonth()).toBe(5)
+    // `?? Number.NaN` keeps this cast-free: a null would make an Invalid Date,
+    // whose getMonth() is NaN and fails the assertion just as loudly.
+    expect(new Date(resetsAt ?? Number.NaN).getMonth()).toBe(5)
   })
 })
