@@ -113,22 +113,34 @@ export type ScheduledMessageValidationError =
   | 'send-at-in-past'
   | 'send-at-beyond-horizon'
 
+export function validateScheduledMessageText(text: string): ScheduledMessageValidationError | null {
+  return text.trim().length === 0 ? 'empty-text' : null
+}
+
+/** Split out from the draft check because an edit that leaves the timing alone
+ *  must not be judged on it: a row whose moment has already passed is exactly the
+ *  one a user reopens to fix the wording, and re-validating its untouched time
+ *  would reject the edit for a lateness they did not introduce. */
+export function validateScheduledMessageTiming(
+  timing: ScheduledMessageTiming,
+  now: number
+): ScheduledMessageValidationError | null {
+  if (timing.kind !== 'at') {
+    return null
+  }
+  if (timing.sendAt <= now) {
+    return 'send-at-in-past'
+  }
+  return timing.sendAt - now > MAX_SCHEDULE_HORIZON_MS ? 'send-at-beyond-horizon' : null
+}
+
 /** Shared by the compose dialog (to disable Save) and the main-process CRUD (to
  *  reject), so the two can never disagree about what is schedulable. */
 export function validateScheduledMessageDraft(
   draft: { text: string; timing: ScheduledMessageTiming },
   now: number
 ): ScheduledMessageValidationError | null {
-  if (draft.text.trim().length === 0) {
-    return 'empty-text'
-  }
-  if (draft.timing.kind === 'at') {
-    if (draft.timing.sendAt <= now) {
-      return 'send-at-in-past'
-    }
-    if (draft.timing.sendAt - now > MAX_SCHEDULE_HORIZON_MS) {
-      return 'send-at-beyond-horizon'
-    }
-  }
-  return null
+  return (
+    validateScheduledMessageText(draft.text) ?? validateScheduledMessageTiming(draft.timing, now)
+  )
 }

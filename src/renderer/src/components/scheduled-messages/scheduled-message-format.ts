@@ -29,7 +29,20 @@ export function fromLocalDateTimeInputs(date: string, time: string): number | nu
     return null
   }
   const parsed = new Date(year, month - 1, day, hour, minute, 0, 0)
-  return Number.isNaN(parsed.getTime()) ? null : parsed.getTime()
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+  // Date silently normalizes a local time that does not exist — 02:30 on a
+  // spring-forward night becomes 03:30, and an out-of-range day rolls into the
+  // next month. Either way the user would be scheduling a moment they never
+  // picked, so round-trip the parts and refuse a mismatch instead.
+  const roundTripped =
+    parsed.getFullYear() === year &&
+    parsed.getMonth() === month - 1 &&
+    parsed.getDate() === day &&
+    parsed.getHours() === hour &&
+    parsed.getMinutes() === minute
+  return roundTripped ? parsed.getTime() : null
 }
 
 function formatAbsolute(epochMs: number): string {

@@ -258,6 +258,32 @@
       }
     }
   },
+  "scheduledMessages": {
+    "notification": {
+      "sent": {
+        "title": "Scheduled message sent",
+        "body": "Orca delivered your queued message to the agent."
+      },
+      "missed": {
+        "title": "Scheduled message missed",
+        "body": "Orca was closed when it came due. It is waiting in Automations — send or reschedule it.",
+        "bodyUsageLimit": "The agent was still rate-limited long after it came due. It is waiting in Automations — send or reschedule it."
+      },
+      "undelivered": {
+        "title": "Scheduled message couldn't be delivered"
+      },
+      "noPane": {
+        "body": "That workspace had no open terminal. Open it, then use Send now in Automations."
+      },
+      "noAgent": {
+        "body": "No agent was running in that workspace, so Orca refused to type into a plain shell."
+      },
+      "failed": {
+        "title": "Scheduled message failed",
+        "body": "Orca couldn't send your queued message. It is still in Automations."
+      }
+    }
+  },
   "tray": {
     "openOrca": "Open Orca",
     "quit": "Quit",
@@ -17425,7 +17451,10 @@
         "statusMissed": "Missed — Orca was closed when it came due",
         "statusNoPane": "Failed — the workspace had no open terminal",
         "statusNoAgent": "Failed — no agent was running in that terminal",
-        "statusFailed": "Failed to send"
+        "statusFailed": "Failed to send",
+        "errorInvalidDateTime": "Pick a valid date and time.",
+        "errorTooMany": "This workspace already has as many scheduled messages as Orca allows. Send or delete one first.",
+        "errorSaveFailed": "Orca couldn't save this scheduled message."
       }
     },
     "i18n": {

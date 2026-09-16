@@ -1,4 +1,5 @@
 import type { ScheduledMessage } from '../shared/scheduled-message-types'
+import type { ScheduledMessagePaneTarget } from './scheduled-message-service-contracts'
 
 /** The `when-idle` half of scheduling: which queued message an idle edge belongs
  *  to, and the settle timer that lets the edge prove it was not a blip.
@@ -21,6 +22,28 @@ export function pickNextIdleMessage(
         message.timing.kind === 'when-idle'
     )
     .sort((a, b) => a.createdAt - b.createdAt)[0]
+}
+
+/** Re-reads the agent's status when a settle timer fires, since the edge that
+ *  armed it is seconds old by then.
+ *
+ *  Fails open: an unreadable status is not evidence the agent is busy, and
+ *  refusing on it would strand the message until an edge that may never come.
+ *  The send guard still refuses a permission prompt or a plain shell. */
+export async function confirmAgentStillIdle(
+  isAgentIdle: ((pane: ScheduledMessagePaneTarget) => Promise<boolean>) | undefined,
+  pane: ScheduledMessagePaneTarget,
+  logger: Pick<Console, 'debug'>
+): Promise<boolean> {
+  if (!isAgentIdle) {
+    return true
+  }
+  try {
+    return await isAgentIdle(pane)
+  } catch (error) {
+    logger.debug('[scheduled-messages] idle re-check failed', { error })
+    return true
+  }
 }
 
 export class ScheduledMessageIdleTimers {

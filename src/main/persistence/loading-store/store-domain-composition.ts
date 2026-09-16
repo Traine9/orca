@@ -126,6 +126,7 @@ export const STORE_DOMAIN_OPERATION_CLASSES = [
   RepoLifecycleOperations,
   MobileTabSelectionPersistence,
   SparsePresetPersistence,
+  ScheduledMessagePersistence,
   RateLimitWatcherPersistence,
   AutomationPersistence,
   MetadataLineageOperations,
