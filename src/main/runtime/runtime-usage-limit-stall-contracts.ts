@@ -49,6 +49,12 @@ export type UsageLimitStallSnapshot = {
   /** Whether the recorded stall is confirmed live on screen right now — the only
    *  state in which the watcher may press a key. */
   actionable: boolean
+  /** Whether the recorded stall is still on screen but could not be classified —
+   *  a chooser frame the parser reads as neither live nor dismissed. Distinct
+   *  from a plain `!actionable`, which the watcher treats as proof the stall is
+   *  over: an indeterminate screen is worth re-reading instead, because dropping
+   *  it strands an agent that will never print another byte to re-arm anything. */
+  indeterminate: boolean
   /** Whether the pane may still be showing usage-limit UI, so nothing may be
    *  typed into it. Deliberately the opposite default to `actionable`: only a
    *  screen that proves the chooser is gone clears this, because a message typed

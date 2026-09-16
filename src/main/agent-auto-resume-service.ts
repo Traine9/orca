@@ -1,78 +1,19 @@
 import type {
   AgentAutoResumeEntry,
-  AgentAutoResumePhase,
-  AgentAutoResumeSnapshot,
-  UsageLimitProvider,
-  UsageLimitStallReason
+  AgentAutoResumeSnapshot
 } from '../shared/agent-auto-resume-types'
-import type { UsageLimitStallEvent, UsageLimitStallSnapshot } from './runtime/orca-runtime'
+import type { UsageLimitStallEvent } from './runtime/orca-runtime'
+import {
+  computeBannerResumeAt,
+  INDETERMINATE_RETRY_DELAY_MS,
+  MAX_INDETERMINATE_RETRIES,
+  MAX_RESUME_ATTEMPTS,
+  POST_SEND_VERIFY_MS,
+  type AgentAutoResumeServiceOptions,
+  type TrackedStall
+} from './agent-auto-resume-contracts'
 
-// Why: after a banner's reset time, give the provider a short cushion before
-// resending so the agent CLI has actually cleared the limit server-side.
-export const BANNER_RESET_GRACE_MS = 90 * 1000
-// Why: some banners print no parseable reset (and the provider quota probe may
-// be unavailable). Retry conservatively rather than hammering the CLI.
-export const BANNER_UNKNOWN_RESET_DELAY_MS = 5 * 60 * 1000
-// Why: after resending, wait before checking whether the agent recovered; a
-// real resume flips the title to "working" within this window.
-export const POST_SEND_VERIFY_MS = 45 * 1000
-// Product rule: cap attempts and always notify on give-up.
-export const MAX_RESUME_ATTEMPTS = 2
-
-export type AgentAutoResumeNotificationKind = 'detected' | 'failed' | 'dead-pty'
-
-export type AgentAutoResumeNotification = {
-  kind: AgentAutoResumeNotificationKind
-  worktreeId: string | null
-  paneKey: string | null
-  provider: UsageLimitProvider | null
-  reason: UsageLimitStallReason
-  resumesAt: number | null
-}
-
-type SendKeysAction = { text?: string; enter?: boolean }
-
-export type AgentAutoResumeServiceOptions = {
-  /** Re-verify a stall against the live PTY tail immediately before acting. */
-  verifyStall: (ptyId: string) => UsageLimitStallSnapshot | null
-  /** Write keystrokes to the agent terminal identified by its runtime handle. */
-  sendKeys: (handle: string, action: SendKeysAction) => Promise<void>
-  /** Move the chooser's highlight onto "stop and wait for limit to reset" and
-   *  confirm it, reading the menu out of the tail `verifyStall` just returned.
-   *  Resolves false when that row could not be identified, which is a refusal to
-   *  act, not a retryable error: the menu's ordering is server-controlled and one
-   *  arrangement puts a paid option under the cursor. */
-  chooseMenuReset: (ptyId: string, handle: string, menuText: string) => Promise<boolean>
-  /** Per-terminal opt-in, keyed by the stall's paneKey: only terminals the user
-   *  marked are ever tracked. Read live on every event so unticking the box takes
-   *  effect immediately. */
-  isWatchEnabled: (paneKey: string | null) => boolean
-  /** The user-configured agent idle timeout, reused as the menu grace period. */
-  getMenuGraceMs: () => number
-  /** resetsAt from RateLimitService for the provider, if known. */
-  getProviderResetAt?: (provider: UsageLimitProvider | null) => number | null
-  /** Fire a native/mobile notification (already gated by NotificationSettings). */
-  notify?: (notification: AgentAutoResumeNotification) => void
-  /** Push the current tracked-entry snapshot to the renderer. */
-  onSnapshot?: (snapshot: AgentAutoResumeSnapshot) => void
-  now?: () => number
-  logger?: Pick<Console, 'debug' | 'warn'>
-}
-
-type TrackedStall = {
-  ptyId: string
-  handle: string
-  worktreeId: string | null
-  paneKey: string | null
-  provider: UsageLimitProvider | null
-  reason: UsageLimitStallReason
-  resetsAt: number | null
-  detectedAt: number
-  phase: AgentAutoResumePhase
-  attempts: number
-  resumesAt: number | null
-  timer: ReturnType<typeof setTimeout> | null
-}
+export * from './agent-auto-resume-contracts'
 
 /**
  * Watches for usage-limit stall events (from the runtime's live PTY scan) and,
@@ -144,6 +85,21 @@ export class AgentAutoResumeService {
     // map, so presence here always means the wait is still live.
     if (existing?.reason === event.reason) {
       existing.handle = event.handle
+      // ...but a banner's reset time is re-parsed on every edge, and a later
+      // banner can carry a corrected (usually further out) one. Keeping the
+      // first would resend `continue` before the limit had actually lifted.
+      // Re-arm only on a real change, so redraw churn still costs nothing, and
+      // only while still waiting — an entry mid-action owns its own schedule.
+      if (
+        existing.reason === 'usage-limit-banner' &&
+        existing.phase === 'waiting' &&
+        event.resetsAt !== existing.resetsAt
+      ) {
+        existing.resetsAt = event.resetsAt
+        this.clearTimer(existing)
+        this.armActionTimer(existing)
+        this.emitSnapshot()
+      }
       return
     }
     if (existing) {
@@ -160,6 +116,7 @@ export class AgentAutoResumeService {
       detectedAt: event.detectedAt,
       phase: 'waiting',
       attempts: 0,
+      indeterminateReads: 0,
       resumesAt: null,
       timer: null
     }
@@ -211,7 +168,7 @@ export class AgentAutoResumeService {
     // the only wait they need is the human-first grace.
     const resumesAt =
       stall.reason === 'usage-limit-banner'
-        ? this.computeBannerResumeAt(stall, now)
+        ? computeBannerResumeAt(stall, this.opts.getProviderResetAt?.(stall.provider) ?? null, now)
         : now + Math.max(0, this.opts.getMenuGraceMs())
     stall.resumesAt = resumesAt
     stall.phase = 'waiting'
@@ -219,17 +176,6 @@ export class AgentAutoResumeService {
     stall.timer = this.schedule(() => {
       void this.onActionDue(stall.ptyId)
     }, delay)
-  }
-
-  private computeBannerResumeAt(stall: TrackedStall, now: number): number {
-    const providerResetAt = this.opts.getProviderResetAt?.(stall.provider) ?? null
-    const target = Math.max(stall.resetsAt ?? 0, providerResetAt ?? 0)
-    if (target <= 0) {
-      return now + BANNER_UNKNOWN_RESET_DELAY_MS
-    }
-    // A reset already in the past means the limit should have cleared — act
-    // after the grace cushion measured from now, not from the stale timestamp.
-    return Math.max(target, now) + BANNER_RESET_GRACE_MS
   }
 
   private async onActionDue(ptyId: string): Promise<void> {
@@ -253,7 +199,8 @@ export class AgentAutoResumeService {
     // stall is confirmed live on screen right now — for a menu that means a
     // readable chooser still owns the bottom of the tail, since its text lingers
     // in the retained tail long after it is dismissed. Anything else is either
-    // recovery or a screen we cannot read; both mean stop quietly.
+    // recovery — stop quietly — or a screen we cannot read, which is re-read
+    // below rather than treated as either.
     //
     // `agentWorking` vetoes banners only. A banner prints after the turn ends,
     // so a working title really does mean the agent moved on. The chooser
@@ -262,12 +209,32 @@ export class AgentAutoResumeService {
     // spinner made a four-hour menu stall read as "recovered" and the watcher
     // dropped it without acting. For menus the screen is the truth, and
     // chooseMenuReset re-reads it by label before any key is pressed.
-    if (
-      !snapshot ||
-      !snapshot.actionable ||
-      (snapshot.agentWorking && stall.reason !== 'usage-limit-menu')
-    ) {
+    if (!snapshot || (snapshot.agentWorking && stall.reason !== 'usage-limit-menu')) {
       this.tracked.delete(ptyId)
+      this.emitSnapshot()
+      return
+    }
+    if (!snapshot.actionable) {
+      // One exception to "stop quietly": a frame the chooser parser could not
+      // classify proves nothing either way, and the pane it describes emits no
+      // further output — so dropping the entry here would park the agent for the
+      // whole limit window. Re-read on a cadence, and only give up (loudly) once
+      // the screen has stayed unreadable across the whole retry budget.
+      if (!snapshot.indeterminate) {
+        this.tracked.delete(ptyId)
+        this.emitSnapshot()
+        return
+      }
+      if (stall.indeterminateReads >= MAX_INDETERMINATE_RETRIES) {
+        this.giveUp(stall, 'menu-unreadable')
+        return
+      }
+      stall.indeterminateReads += 1
+      stall.phase = 'waiting'
+      stall.resumesAt = this.now() + INDETERMINATE_RETRY_DELAY_MS
+      stall.timer = this.schedule(() => {
+        void this.onActionDue(ptyId)
+      }, INDETERMINATE_RETRY_DELAY_MS)
       this.emitSnapshot()
       return
     }
@@ -337,6 +304,12 @@ export class AgentAutoResumeService {
   private giveUp(stall: TrackedStall, reason: string): void {
     this.logger.debug('[auto-resume] giving up', { ptyId: stall.ptyId, reason })
     this.clearTimer(stall)
+    // Both menu give-ups are reached after an await, so a newer stall may already
+    // own this ptyId. Deleting by key would take that live entry's schedule down
+    // with this dead one and notify the user about a stall that was superseded.
+    if (!this.isStillTracked(stall.ptyId, stall)) {
+      return
+    }
     this.tracked.delete(stall.ptyId)
     this.opts.notify?.({
       kind: 'failed',

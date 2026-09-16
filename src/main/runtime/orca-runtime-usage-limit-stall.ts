@@ -140,6 +140,9 @@ export class OrcaRuntimeWithUsageLimitStall extends OrcaRuntimeWithResolveExitWa
         reason !== 'usage-limit-cli-waiting' &&
         liveSignal?.reason === reason &&
         (reason !== 'usage-limit-menu' || menu?.state === 'live'),
+      // The chooser is still the last thing on screen, we just cannot read this
+      // frame: the caller may re-read, but may not act.
+      indeterminate: liveSignal?.reason === reason && menu?.state === 'unreadable',
       blocksDelivery: liveSignal !== null && menu?.state !== 'dismissed',
       agentWorking: pty.lastAgentStatus === 'working',
       waitText

@@ -1,4 +1,5 @@
 import { resolveAgentTypeFromTerminalTitle } from '@/components/sidebar/worktree-title-derived-agent-rows'
+import { translate } from '@/i18n/i18n'
 import { classifyTitleActivity } from '@/lib/pane-agent-evidence'
 import { tabHasLivePty } from '@/lib/tab-has-live-pty'
 import { resolveRuntimePaneTitleLeafIdFromRoot } from '@/lib/runtime-pane-title-leaf-id'
@@ -160,6 +161,14 @@ function titleStatusIsAgentAttributable(title: string, launchAgent?: TuiAgent | 
 }
 
 export function getWorktreeStatusLabel(status: WorktreeStatus): string {
+  // Only the status this feature added is translated: it reaches tooltips, the
+  // command palette and screen readers, and no localized label covers it. The
+  // neighbouring labels stay as they are — relocalizing the whole table is a
+  // separate change, and the table cannot call translate() where it is declared
+  // anyway (module scope is evaluated before the catalog loads).
+  if (status === 'rate-limited') {
+    return translate('auto.lib.worktreeStatus.rateLimited', 'Rate-limited')
+  }
   return STATUS_LABELS[status]
 }
 
