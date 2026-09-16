@@ -39,6 +39,10 @@ export function initializeMainProcessScheduledMessages(
       }
       return true
     },
+    isAgentIdle: async (pane) => {
+      const status = await runtimeService.getTerminalAgentStatus(pane.handle)
+      return status.isRunningAgent && status.status !== 'working'
+    },
     createId: () => randomUUID(),
     notify: (notification) =>
       deliverScheduledMessageNotification(notification, {

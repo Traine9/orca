@@ -26,7 +26,12 @@ function makeHarness(
   let nextId = 0
   const deliver = vi.fn<(handle: string, text: string) => Promise<void>>(() => Promise.resolve())
   const notify = vi.fn<(n: ScheduledMessageNotification) => void>()
-  const pane = options.pane === undefined ? { handle: HANDLE, ptyId: PTY } : options.pane
+  // Mutable so a test can open a pane (or let the agent pick work back up) between
+  // two delivery attempts, the way the real runtime does across a wait.
+  const agent = {
+    pane: options.pane === undefined ? { handle: HANDLE, ptyId: PTY } : options.pane,
+    idle: true
+  }
   const stall = { stalled: options.stalled === true }
   const deferForUsageLimit = vi.fn<(ptyId: string, handle: string) => Promise<boolean>>(() =>
     Promise.resolve(stall.stalled)
@@ -42,9 +47,10 @@ function makeHarness(
         rows = rows.filter((row) => row.id !== id)
       }
     },
-    resolveAgentPane: () => Promise.resolve(pane),
+    resolveAgentPane: () => Promise.resolve(agent.pane),
     deliver,
     deferForUsageLimit,
+    isAgentIdle: () => Promise.resolve(agent.idle),
     createId: () => `msg-${++nextId}`,
     notify,
     now: () => clock,
@@ -52,6 +58,7 @@ function makeHarness(
   })
   return {
     service,
+    agent,
     deliver,
     notify,
     stall,
@@ -331,14 +338,98 @@ describe('ScheduledMessageService', () => {
     h.advance(2000)
     h.service.start()
     await vi.advanceTimersByTimeAsync(0)
+    expect(h.rows()[0]).toMatchObject({ status: 'failed', failureReason: 'no-pane' })
+
+    // A failed row must not be inert: send-now is the whole point of keeping it,
+    // and the user reaches for it precisely once they have opened the terminal
+    // whose absence failed the row in the first place.
+    h.agent.pane = { handle: HANDLE, ptyId: PTY }
+    await h.service.sendNow(added.id)
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'retry me')
+    expect(h.rows()).toHaveLength(0)
+  })
+
+  it('delivers once when two send-now calls overlap', async () => {
+    const h = makeHarness()
+    let release = (): void => {}
+    h.deliver.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve
+        })
+    )
+    const added = h.service.add({
+      worktreeId: WORKTREE,
+      text: 'once',
+      timing: { kind: 'when-idle' }
+    })
+
+    const first = h.service.sendNow(added.id)
+    const second = h.service.sendNow(added.id)
+    await vi.advanceTimersByTimeAsync(0)
+    release()
+    await Promise.all([first, second])
+
+    expect(h.deliver).toHaveBeenCalledTimes(1)
+    expect(h.rows()).toHaveLength(0)
+  })
+
+  it('waits for the next idle edge when the agent picked work back up while settling', async () => {
+    const h = makeHarness()
+    const added = h.service.add({
+      worktreeId: WORKTREE,
+      text: 'when free',
+      timing: { kind: 'when-idle' }
+    })
+    h.service.start()
+
+    // The edge fired, then the user typed: three seconds later the agent is busy
+    // again, and this text would land in the middle of its turn.
+    h.service.handleIdleEdge({ ptyId: PTY, worktreeId: WORKTREE, leafId: 'leaf', tabId: 'tab' })
+    h.agent.idle = false
+    await vi.advanceTimersByTimeAsync(IDLE_EDGE_SETTLE_MS)
+    expect(h.deliver).not.toHaveBeenCalled()
+    expect(h.rows()[0]).toMatchObject({ id: added.id, status: 'pending' })
+
+    h.agent.idle = true
+    h.service.handleIdleEdge({ ptyId: PTY, worktreeId: WORKTREE, leafId: 'leaf', tabId: 'tab' })
+    await vi.advanceTimersByTimeAsync(IDLE_EDGE_SETTLE_MS)
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'when free')
+  })
+
+  it('drops the armed idle timer when the row is retimed to a clock moment', async () => {
+    const h = makeHarness()
+    const added = h.service.add({
+      worktreeId: WORKTREE,
+      text: 'later instead',
+      timing: { kind: 'when-idle' }
+    })
+    h.service.start()
+    h.service.handleIdleEdge({ ptyId: PTY, worktreeId: WORKTREE, leafId: 'leaf', tabId: 'tab' })
+
+    h.service.update(added.id, { timing: { kind: 'at', sendAt: NOW + 3_600_000 } })
+    await vi.advanceTimersByTimeAsync(IDLE_EDGE_SETTLE_MS)
+
+    expect(h.deliver).not.toHaveBeenCalled()
+    expect(h.rows()[0]).toMatchObject({ status: 'pending', timing: { kind: 'at' } })
+  })
+
+  it('accepts a text-only edit of a row whose moment has already passed', async () => {
+    const h = makeHarness({ pane: null })
+    const added = h.service.add({
+      worktreeId: WORKTREE,
+      text: 'typo',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    h.advance(2000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
     expect(h.rows()[0]).toMatchObject({ status: 'failed' })
 
-    // A failed row must not be inert: send-now is the whole point of keeping it.
-    const revived = makeHarness()
-    revived.service.add({ worktreeId: WORKTREE, text: 'retry me', timing: { kind: 'when-idle' } })
-    await revived.service.sendNow('msg-1')
-    expect(revived.deliver).toHaveBeenCalledWith(HANDLE, 'retry me')
-    expect(added.id).toBe('msg-1')
+    // Fixing the wording must not be rejected for a lateness the user did not
+    // introduce — the row is failed precisely because its time came and went.
+    expect(() => h.service.update(added.id, { text: 'fixed' })).not.toThrow()
+    expect(h.rows()[0]).toMatchObject({ text: 'fixed', status: 'pending' })
   })
 
   it('rejects a schedule beyond the one-year horizon', () => {

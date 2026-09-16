@@ -103,3 +103,14 @@ export type ScheduledMessagesSnapshot = {
 }
 
 export const SCHEDULED_MESSAGES_UPDATE_CHANNEL = 'scheduledMessages:update'
+
+/** `missed` is not an independent choice — it is precisely "the due moment came
+ *  and went". Deriving it from the reason keeps the status and the reason from
+ *  ever contradicting each other, on either side of the IPC boundary. */
+export function scheduledMessageStatusForFailure(
+  failureReason: ScheduledMessageFailureReason
+): Exclude<ScheduledMessageStatus, 'pending'> {
+  return failureReason === 'expired-while-closed' || failureReason === 'usage-limit-outlasted'
+    ? 'missed'
+    : 'failed'
+}
