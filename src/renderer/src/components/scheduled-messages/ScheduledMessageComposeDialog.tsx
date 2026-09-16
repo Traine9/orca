@@ -54,6 +54,48 @@ function validationMessage(error: ScheduledMessageValidationError | null): strin
   return null
 }
 
+function formErrorMessage(
+  text: string,
+  timing: ScheduledMessageTiming | null,
+  error: ScheduledMessageValidationError | null
+): string | null {
+  if (timing === null) {
+    return translate(
+      'auto.components.scheduledMessages.errorInvalidDateTime',
+      'Pick a valid date and time.'
+    )
+  }
+  // An untouched empty field should not shout at the user before they type.
+  if (text.length === 0 && error === 'empty-text') {
+    return null
+  }
+  return validationMessage(error)
+}
+
+/** Main rejects with the bare code, but the IPC layer wraps it in its own
+ *  "Error invoking remote method" prose — so match inside the message rather
+ *  than comparing it. A rejection the dialog cannot name is still shown: silence
+ *  here reads as "saved" for a message that was not. */
+function submitFailureMessage(failure: unknown): string {
+  const raw = failure instanceof Error ? failure.message : String(failure)
+  if (raw.includes('too-many-scheduled-messages')) {
+    return translate(
+      'auto.components.scheduledMessages.errorTooMany',
+      'This workspace already has as many scheduled messages as Orca allows. Send or delete one first.'
+    )
+  }
+  const known = (['empty-text', 'send-at-in-past', 'send-at-beyond-horizon'] as const).find(
+    (code) => raw.includes(code)
+  )
+  return (
+    (known ? validationMessage(known) : null) ??
+    translate(
+      'auto.components.scheduledMessages.errorSaveFailed',
+      "Orca couldn't save this scheduled message."
+    )
+  )
+}
+
 /**
  * Compose or edit one scheduled message. Shared by the workspace context menu
  * (create) and the Automations page (edit) so the two can never drift on what
@@ -72,6 +114,12 @@ export function ScheduledMessageComposeDialog({
   const [dateValue, setDateValue] = useState('')
   const [timeValue, setTimeValue] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [submitFailure, setSubmitFailure] = useState<string | null>(null)
+  // Why a captured moment rather than Date.now() per render: validating against a
+  // moving clock would flip the error text under the user mid-typing. Re-seeded on
+  // every open (below) — this dialog stays mounted for the session, and judging
+  // tonight's pick against this morning's clock would accept a time already gone.
+  const [openedAt, setOpenedAt] = useState(() => Date.now())
   const [seed, setSeed] = useState<{ open: boolean; messageId: string | null }>({
     open: false,
     messageId: null
@@ -90,8 +138,18 @@ export function ScheduledMessageComposeDialog({
       setDateValue(inputs.date)
       setTimeValue(inputs.time)
       setSubmitting(false)
+      setSubmitFailure(null)
     }
   }
+
+  // An Effect and not the seeding block above, because reading the clock during
+  // render is impure. One frame bound to the previous open's clock only affects
+  // the error text, and the submit path re-reads Date.now() before it sends.
+  useEffect(() => {
+    if (open) {
+      setOpenedAt(Date.now())
+    }
+  }, [open])
 
   // Memoized because handleSubmit closes over it: a fresh object each render
   // would defeat the useCallback and re-create the form's submit handler.
@@ -102,20 +160,8 @@ export function ScheduledMessageComposeDialog({
     const sendAt = fromLocalDateTimeInputs(dateValue, timeValue)
     return sendAt === null ? null : { kind: 'at', sendAt }
   }, [dateValue, kind, timeValue])
-  // Read once on mount, not during render: Date.now() is impure, and validating
-  // against a moving clock would flip the error text under the user mid-typing.
-  // Main re-validates on submit, so a one-frame null here cannot let a past time
-  // through.
-  const [openedAt, setOpenedAt] = useState<number | null>(null)
-  useEffect(() => setOpenedAt(Date.now()), [])
-  const error =
-    timing === null
-      ? 'send-at-in-past'
-      : openedAt === null
-        ? null
-        : validateScheduledMessageDraft({ text, timing }, openedAt)
-  // An untouched empty field should not shout at the user before they type.
-  const shownError = text.length === 0 && error === 'empty-text' ? null : validationMessage(error)
+  const error = timing === null ? null : validateScheduledMessageDraft({ text, timing }, openedAt)
+  const shownError = submitFailure ?? formErrorMessage(text, timing, error)
 
   const handleSubmit = useCallback(
     async (event?: React.FormEvent<HTMLFormElement>) => {
@@ -123,10 +169,23 @@ export function ScheduledMessageComposeDialog({
       if (timing === null || error !== null || submitting) {
         return
       }
+      setSubmitFailure(null)
+      // Re-validate against the clock and not against the moment the dialog was
+      // opened: a dialog left sitting past the time it holds would otherwise
+      // submit a moment already gone and be rejected after the round trip.
+      const lateError = validateScheduledMessageDraft({ text, timing }, Date.now())
+      if (lateError) {
+        setSubmitFailure(validationMessage(lateError))
+        return
+      }
       setSubmitting(true)
       try {
         await onSubmit({ text, timing })
         onOpenChange(false)
+      } catch (failure) {
+        // Keep the dialog open: the text is the user's, and closing on a
+        // rejection would throw it away with nothing said.
+        setSubmitFailure(submitFailureMessage(failure))
       } finally {
         setSubmitting(false)
       }
@@ -219,7 +278,7 @@ export function ScheduledMessageComposeDialog({
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               {translate('auto.components.scheduledMessages.cancel', 'Cancel')}
             </Button>
-            <Button type="submit" disabled={error !== null || submitting}>
+            <Button type="submit" disabled={timing === null || error !== null || submitting}>
               {message
                 ? translate('auto.components.scheduledMessages.save', 'Save')
                 : translate('auto.components.scheduledMessages.schedule', 'Schedule')}
