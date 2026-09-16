@@ -117,7 +117,8 @@ export function attachMainWindowCoreServices(
             : {})
         }
       : undefined,
-    state.agentAutoResumeService ?? undefined
+    state.agentAutoResumeService ?? undefined,
+    state.scheduledMessageService ?? undefined
   )
   automations.start()
   attachMainWindowServices(

@@ -60,5 +60,7 @@ export const WSL_DRIVE_UNC_STATE_DISPOSITIONS = {
   codexResetCreditAttemptLedger: 'keep',
   chatUiLaunchTipAudience: 'keep',
   // Armed watcher entries are tab ids, not paths.
-  rateLimitWatcherTabs: 'keep'
+  rateLimitWatcherTabs: 'keep',
+  // Rows name a worktree id that the worktree rewrite already carries.
+  scheduledMessages: 'rewrite'
 } as const satisfies Record<keyof PersistedState, Disposition>

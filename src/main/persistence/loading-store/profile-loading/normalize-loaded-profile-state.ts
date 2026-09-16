@@ -25,6 +25,7 @@ import type { PreparedLoadedTerminalSettings } from './prepare-loaded-terminal-s
 import type { PreparedLoadedProfileSettings } from './prepare-loaded-profile-settings'
 import { normalizeLoadedGlobalSettings } from './normalize-loaded-global-settings'
 import { normalizeLoadedUiState } from './normalize-loaded-ui-state'
+import { normalizeScheduledMessages } from '../../../shared/scheduled-message-validation'
 import {
   normalizeLoadedAutomationRuns,
   normalizeLoadedHostSessions,
@@ -133,6 +134,7 @@ export function normalizeLoadedProfileState(
     orcadMigrationStagedCatalogs: normalizeOrcadMigrationStagedCatalogs(
       parsed.orcadMigrationStagedCatalogs
     ),
+    scheduledMessages: normalizeScheduledMessages(parsed.scheduledMessages),
     onboarding: normalizedOnboarding
   }
 }

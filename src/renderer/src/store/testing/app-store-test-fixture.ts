@@ -57,6 +57,7 @@ import { createWorkspaceAttentionSlice } from '../slices/workspace-attention/wor
 import { createEphemeralVmLifecycleSlice } from '../slices/ephemeral-vm/ephemeral-vm-lifecycle'
 import { createAutoResumeSlice } from '../slices/auto-resume'
 import { createRateLimitWatcherSlice } from '../slices/rate-limit-watcher'
+import { createScheduledMessagesSlice } from '../slices/scheduled-messages'
 import '@/i18n/i18n'
 import { withEditorBufferRecords } from '../slices/editor/buffers/editor-buffer-record-lifecycle'
 import { withAgentConversationRetention } from '../slices/agent-status/agent-conversation-retention'
@@ -128,7 +129,8 @@ export function createTestStore(
         ...createWorkspaceAttentionSlice(...a),
         ...createEphemeralVmLifecycleSlice(...a),
         ...createAutoResumeSlice(...a),
-        ...createRateLimitWatcherSlice(...a)
+        ...createRateLimitWatcherSlice(...a),
+        ...createScheduledMessagesSlice(...a)
       }),
       true
     )

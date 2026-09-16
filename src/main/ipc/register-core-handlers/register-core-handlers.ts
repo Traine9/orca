@@ -48,6 +48,7 @@ import { setTrustedBrowserRendererWebContentsId } from '../browser/browser-rende
 import { registerSessionHandlers } from '../session'
 import { registerSettingsHandlers } from '../settings'
 import { registerAgentAutoResumeHandlers } from '../agent-auto-resume'
+import { registerScheduledMessageHandlers } from '../scheduled-messages'
 import { registerRateLimitWatcherHandlers } from '../rate-limit-watcher'
 import { registerDiagnosticsHandlers } from '../diagnostics'
 import { registerSkillsHandlers } from '../skills'
@@ -93,6 +94,7 @@ import type { AutomationService } from '../../automations/service'
 import type { AgentAwakeService } from '../../power/agent-awake-service'
 import type { AgentAutoResumeService } from '../../agent-auto-resume-service'
 import type { CrashReportStore } from '../../crash-reporting/reports/crash-report-store'
+import type { ScheduledMessageService } from '../../scheduled-message-service'
 import type { KeybindingService } from '../../keybindings/keybinding-service'
 import type {
   AiVaultPrepareSessionResumeArgs,
@@ -157,7 +159,8 @@ export function registerCoreHandlers(
   lifecycleOptions: CoreHandlerLifecycleOptions = {},
   pluginService?: PluginService,
   marketplaceServices?: PluginMarketplaceHandlerServices,
-  agentAutoResumeService?: AgentAutoResumeService
+  agentAutoResumeService?: AgentAutoResumeService,
+  scheduledMessageService?: ScheduledMessageService
 ): void {
   // macOS activation can replace the window without ending the app; refresh trusted IDs but register IPC once.
   setTrustedBrowserRendererWebContentsId(mainWindowWebContentsId)
@@ -220,6 +223,7 @@ export function registerCoreHandlers(
   registerComputerUsePermissionHandlers()
   registerSettingsHandlers(store, agentAwakeService)
   registerAgentAutoResumeHandlers(agentAutoResumeService)
+  registerScheduledMessageHandlers(scheduledMessageService)
   registerRateLimitWatcherHandlers(store, {
     onArmed: (tabId) => runtime.reemitUsageLimitStallsForTab(tabId)
   })

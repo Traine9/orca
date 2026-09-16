@@ -22,6 +22,18 @@ export function registerAgentAutoResumeIpcBridge(unsubs: (() => void)[]): void {
     }
   })
 
+  const unsubscribeScheduledMessages = window.api.scheduledMessages?.onUpdate?.((snapshot) => {
+    useAppStore.getState().setScheduledMessagesSnapshot?.(snapshot)
+  })
+  if (unsubscribeScheduledMessages) {
+    unsubs.push(unsubscribeScheduledMessages)
+  }
+  void Promise.resolve(window.api.scheduledMessages?.get?.()).then((snapshot) => {
+    if (snapshot) {
+      useAppStore.getState().setScheduledMessagesSnapshot?.(snapshot)
+    }
+  })
+
   // No subscription: the renderer is the only writer of the armed set, so the
   // one-shot hydrate is enough to survive a reload.
   const watcherRevision = useAppStore.getState().rateLimitWatcherRevision ?? 0

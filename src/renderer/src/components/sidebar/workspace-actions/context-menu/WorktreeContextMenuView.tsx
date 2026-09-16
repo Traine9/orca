@@ -13,6 +13,7 @@ import { WorktreeDeveloperMenu } from '../open/WorktreeDeveloperMenu'
 import { WorkspaceSleepMenuItems } from '../sleep/WorkspaceSleepMenuItems'
 import { WorkspaceVmLifecycleMenuItems } from '../sleep/WorkspaceVmLifecycleMenuItems'
 import { WorkspaceRateLimitWatcherMenuItem } from './WorkspaceRateLimitWatcherMenuItem'
+import { WorkspaceScheduledMessagesMenuItem } from './WorkspaceScheduledMessagesMenuItem'
 import { isEventTargetInsideCurrentTarget } from '../../workspace-card/controller/worktree-card-dom-events'
 import { useTranslate } from '@/i18n/use-translate'
 import type { WorktreeContextMenuModel } from './use-worktree-context-menu-model'
@@ -47,6 +48,7 @@ export default function WorktreeContextMenuView({ model }: { model: WorktreeCont
     handleAssignWorkspaceStatus,
     handleCloseAutoFocus,
     handleCloseTerminals,
+    handleOpenScheduleDialog,
     handleRemoveParentLink,
     handleRename,
     handleSleepSubtree,
@@ -60,6 +62,7 @@ export default function WorktreeContextMenuView({ model }: { model: WorktreeCont
     menuOpen,
     menuPoint,
     onContextMenuSelect,
+    pendingScheduledCount,
     repo,
     scopeRef,
     setContextWorktrees,
@@ -173,7 +176,14 @@ export default function WorktreeContextMenuView({ model }: { model: WorktreeCont
             </DropdownMenuItem>
           )}
           {!isMultiContext && folderWorkspaceId === null ? (
-            <WorkspaceRateLimitWatcherMenuItem worktreeId={worktree.id} disabled={isDeleting} />
+            <>
+              <WorkspaceRateLimitWatcherMenuItem worktreeId={worktree.id} disabled={isDeleting} />
+              <WorkspaceScheduledMessagesMenuItem
+                pendingCount={pendingScheduledCount}
+                disabled={isDeleting}
+                onSelect={handleOpenScheduleDialog}
+              />
+            </>
           ) : null}
           <WorktreeContextMenuDeleteItems model={model} />
           <DropdownMenuSeparator />

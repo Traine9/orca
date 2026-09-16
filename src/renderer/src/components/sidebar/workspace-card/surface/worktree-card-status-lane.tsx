@@ -3,6 +3,7 @@ import React from 'react'
 import { cn } from '@/lib/class-names'
 import { useWslHostOffForRepo } from '../../use-wsl-host-off-review'
 import { WorktreeCardStatusSlot } from './WorktreeCardStatusSlot'
+import { WorktreeCardScheduledMessagesBadge } from './WorktreeCardScheduledMessagesBadge'
 import type { WorktreeCardController } from '../controller/use-worktree-card-controller'
 
 /** The card's leading status lane: activity, review and the unread toggle or dot. */
@@ -37,6 +38,7 @@ export function WorktreeCardStatusLane({
         hasBranchIdentity={Boolean(card.branchIdentityDisplay)}
         reviewStale={reviewStale}
       />
+      <WorktreeCardScheduledMessagesBadge worktreeId={card.worktree.id} />
     </div>
   )
 }

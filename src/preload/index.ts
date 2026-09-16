@@ -81,6 +81,7 @@ import { runtimeEnvironmentsApi } from './api/runtime-environments-bridge'
 import { rateLimitsApi } from './api/rate-limits-bridge'
 import { opencodeGoCredentialsApi } from './api/opencode-go-credentials-bridge'
 import { agentAutoResumeApi } from './api/agent-auto-resume-bridge'
+import { scheduledMessagesApi } from './api/scheduled-messages-bridge'
 import { rateLimitWatcherApi } from './api/rate-limit-watcher-bridge'
 import { minimaxCredentialsApi } from './api/minimax-credentials-bridge'
 import { zcodePlanCredentialsApi } from './api/zcode-plan-credentials-bridge'
@@ -189,6 +190,7 @@ const api = {
   rateLimits: rateLimitsApi,
   opencodeGoCredentials: opencodeGoCredentialsApi,
   agentAutoResume: agentAutoResumeApi,
+  scheduledMessages: scheduledMessagesApi,
   rateLimitWatcher: rateLimitWatcherApi,
   minimaxCredentials: minimaxCredentialsApi,
   zcodePlanCredentials: zcodePlanCredentialsApi,

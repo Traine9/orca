@@ -20,10 +20,13 @@ import {
 import { openCodeComposerHoldsDraft } from '../../../../shared/terminal/input/opencode-composer'
 import { isMailboxTerminalTakingInput } from '../../orchestration/mailbox/routing/mailbox-owner'
 import type { MailboxDeliveryHold } from '../../orchestration/mailbox/delivery-hold/mailbox-delivery-hold'
+import type { AgentIdleEdgeEvent } from '../../runtime-usage-limit-stall-contracts'
 
 const DIALOG_HOLD_RECHECK_MS = 2000
 
 export abstract class OrcaRuntimeWithResolveExitWaiters extends OrcaRuntimeWithBindPtyIncarnationHandle {
+  protected abstract emitAgentIdleEdge(event: AgentIdleEdgeEvent): void
+
   protected resolvePtyExitWaiters(pty: RuntimePtyWorktreeRecord, ptyId: string): void {
     for (const waiter of this.terminalWaiters.forPty(ptyId)) {
       if (waiter.condition === 'exit') {
@@ -69,6 +72,28 @@ export abstract class OrcaRuntimeWithResolveExitWaiters extends OrcaRuntimeWithB
       this.checkDeliverySettledAndArmRecheck(ptyId)
     ) {
       this.orchestrationMailboxNotifications.deliverForTerminal(terminal)
+    }
+    this.offerAgentIdleEdge(ptyId)
+  }
+
+  /** Scheduled messages ride this funnel instead of a second idle edge of their own: one gate, one
+   *  set of guarantees. Unlike mail they wait for a settled live idle, never a running turn. */
+  private offerAgentIdleEdge(ptyId: string): void {
+    const pty = this.ptysById.get(ptyId)
+    if (
+      !pty?.lastAgentStatusObservedLive ||
+      pty.lastAgentStatus !== 'idle' ||
+      !this.isAgentSettledForDelivery(ptyId)
+    ) {
+      return
+    }
+    for (const leaf of this.getLeavesForPty(ptyId)) {
+      this.emitAgentIdleEdge({
+        ptyId,
+        worktreeId: leaf.worktreeId,
+        leafId: leaf.leafId,
+        tabId: leaf.tabId
+      })
     }
   }
 

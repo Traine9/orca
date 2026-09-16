@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { OrcaRuntimeService } from './orca-runtime'
-import { makePaneKey } from '../../shared/stable-pane-id'
+import { makePaneKey } from '../../shared/workspace-layout/stable-pane-id'
 import type { UsageLimitStallEvent } from './runtime-usage-limit-stall-contracts'
 
 const LEAF = '11111111-1111-4111-8111-111111111111'

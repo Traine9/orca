@@ -5,7 +5,10 @@ import type {
 import type { CrewRuntimeReaders } from '../../orchestration/crew/crew-runtime-watch'
 import { TerminalIdentitySource } from '../identity/terminal-identity-source'
 import type { WaitBlockedCheckState } from '../wait/wait-blocked-check-state'
-import type { UsageLimitStallEvent } from '../../runtime-usage-limit-stall-contracts'
+import type {
+  AgentIdleEdgeEvent,
+  UsageLimitStallEvent
+} from '../../runtime-usage-limit-stall-contracts'
 import { OrcaRuntimeWithStopRequestedPtyIds } from '../../construction/runtime-service-state'
 import { RuntimeSubscriptionRegistry } from '../../client/runtime-subscription-registry'
 import { RuntimeMobileNotificationController } from '../../push/notifications/runtime-mobile-notification-controller'
@@ -89,6 +92,8 @@ export abstract class OrcaRuntimeWithFitOverrideListeners extends OrcaRuntimeWit
   // Why: process-wide (not per-PTY) fan-out of usage-limit stall events to the
   // single AgentAutoResumeService registered in the composition root.
   protected usageLimitStallListeners = new Set<(event: UsageLimitStallEvent) => void>()
+
+  protected agentIdleEdgeListeners = new Set<(event: AgentIdleEdgeEvent) => void>()
 
   protected readonly subscriptions = new RuntimeSubscriptionRegistry()
 

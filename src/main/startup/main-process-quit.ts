@@ -124,6 +124,10 @@ function installWillQuitHandler(): void {
     state.unsubscribeUsageLimitStall = null
     state.agentAutoResumeService?.dispose()
     state.agentAutoResumeService = null
+    state.unsubscribeAgentIdleEdge?.()
+    state.unsubscribeAgentIdleEdge = null
+    state.scheduledMessageService?.dispose()
+    state.scheduledMessageService = null
     state.unsubscribeSystemResumeBroadcast?.()
     state.unsubscribeSystemResumeBroadcast = null
     state.stopDesktopPresenceReporter?.()
