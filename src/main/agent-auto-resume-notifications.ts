@@ -1,5 +1,6 @@
 import { Notification } from 'electron'
 import type { NotificationSettings } from '../shared/notification-settings-types'
+import { translateMain } from './i18n/main-i18n'
 import type { AgentAutoResumeNotification } from './agent-auto-resume-service'
 
 // Why: main-originated (not renderer-dispatched) notifications, so they build
@@ -17,8 +18,32 @@ function defaultFormatTime(epochMs: number): string {
   try {
     return new Date(epochMs).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
   } catch {
-    return 'the reset time'
+    return translateMain('agentAutoResume.notification.resetTimeUnknown', 'the reset time')
   }
+}
+
+function buildDetectedBody(notification: AgentAutoResumeNotification, when: string | null): string {
+  if (when === null) {
+    return translateMain(
+      'agentAutoResume.notification.detected.bodyUnknownReset',
+      'Orca will auto-resume it when the limit resets.'
+    )
+  }
+  // The menu path's `resumesAt` is when Orca answers the CLI's chooser, not when
+  // the agent runs again: the limit itself can have hours left after that. Only
+  // the banner path's time is a resume time, so only it may be called one.
+  if (notification.reason === 'usage-limit-menu') {
+    return translateMain(
+      'agentAutoResume.notification.detected.bodyMenuAt',
+      'Orca will answer the rate-limit prompt at {{when}}, then wait out the limit.',
+      { when }
+    )
+  }
+  return translateMain(
+    'agentAutoResume.notification.detected.bodyAt',
+    'Orca will auto-resume it at {{when}}.',
+    { when }
+  )
 }
 
 function buildContent(
@@ -31,21 +56,28 @@ function buildContent(
       : null
   if (notification.kind === 'detected') {
     return {
-      title: 'Agent rate-limited',
-      body: when
-        ? `Orca will auto-resume it at ${when}.`
-        : 'Orca will auto-resume it when the limit resets.'
+      title: translateMain('agentAutoResume.notification.detected.title', 'Agent rate-limited'),
+      body: buildDetectedBody(notification, when)
     }
   }
   if (notification.kind === 'dead-pty') {
     return {
-      title: 'Rate-limited agent exited',
-      body: 'The agent process exited while rate-limited. Reopen its worktree to resume the session.'
+      title: translateMain(
+        'agentAutoResume.notification.deadPty.title',
+        'Rate-limited agent exited'
+      ),
+      body: translateMain(
+        'agentAutoResume.notification.deadPty.body',
+        'The agent process exited while rate-limited. Reopen its worktree to resume the session.'
+      )
     }
   }
   return {
-    title: 'Auto-resume failed',
-    body: "Orca couldn't resume the rate-limited agent. Resume it manually."
+    title: translateMain('agentAutoResume.notification.failed.title', 'Auto-resume failed'),
+    body: translateMain(
+      'agentAutoResume.notification.failed.body',
+      "Orca couldn't resume the rate-limited agent. Resume it manually."
+    )
   }
 }
 

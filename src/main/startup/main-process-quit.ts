@@ -93,10 +93,6 @@ function installBeforeQuitHandler(): void {
     state.unsubscribeAgentAwakeStatusChanges = null
     state.agentAwakeService?.dispose()
     state.agentAwakeService = null
-    state.unsubscribeUsageLimitStall?.()
-    state.unsubscribeUsageLimitStall = null
-    state.agentAutoResumeService?.dispose()
-    state.agentAutoResumeService = null
     // Beforeunload may veto; wait for ref locks now but uninstall only after committed quit. isQuitting already blocks new attempts.
     state.repoMaintenanceShutdown = awaitPackedRefsLockRelease()
     // Delay PTY cleanup until scrollback capture; exit events otherwise unmount the renderer callbacks.
@@ -121,6 +117,13 @@ function installWillQuitHandler(): void {
     // A renderer can veto before-quit; push must survive until quit is committed.
     markHostShuttingDown()
     state.desktopPushService?.stop()
+    // Same reason, and nothing recreates these: the services are built once during
+    // ready startup, so disposing them in before-quit left a vetoed quit running
+    // for the rest of the session with no stall subscription and no armed waits.
+    state.unsubscribeUsageLimitStall?.()
+    state.unsubscribeUsageLimitStall = null
+    state.agentAutoResumeService?.dispose()
+    state.agentAutoResumeService = null
     state.unsubscribeSystemResumeBroadcast?.()
     state.unsubscribeSystemResumeBroadcast = null
     state.stopDesktopPresenceReporter?.()

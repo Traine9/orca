@@ -59,6 +59,10 @@ describe('usage-limit tail-state edge trigger', () => {
   it.each([
     ["You've hit your session limit · resets 3:50pm", 'usage-limit-banner'],
     ['You have reached your weekly limit.', 'usage-limit-banner'],
+    // The detector's participle forms: `hitting` sits inside `hit`+`ting`, which
+    // an alternation written as `(?:hit|reach)(?:ing|ed)?` silently loses.
+    ['You are hitting your weekly limit.', 'usage-limit-banner'],
+    ['Reaching your session limit.', 'usage-limit-banner'],
     ['Approaching limit — usage limit reached for this 5-hour window', 'usage-limit-banner'],
     ['❯ 1. Stop and wait for limit to reset', 'usage-limit-menu'],
     ['2. Ask your admin for more usage', 'usage-limit-menu'],
