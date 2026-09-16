@@ -12,6 +12,7 @@ import { AutomationRunsDashboardSurface } from './AutomationRunsDashboardSurface
 import { AutomationRunDetailsPage } from './AutomationRunDetailsPage'
 import { AutomationsPageDeleteDialogs } from './AutomationsPageDeleteDialogs'
 import { AutomationsPageListPanel } from './AutomationsPageListPanel'
+import { ScheduledMessagesSection } from '@/components/scheduled-messages/ScheduledMessagesSection'
 export function AutomationsPageSurface({
   controller
 }: {
@@ -316,10 +317,16 @@ export function AutomationsPageSurface({
           }}
         />
       ) : (
-        <AutomationsPageListPanel
-          controller={controller}
-          onOpenDetail={() => setIsDetailOpen(true)}
-        />
+        <>
+          {/* Above the automations list, not inside it: these are one-shot
+              messages into a live session, so the list's enabled/paused and
+              last-run filters do not apply to them. */}
+          <ScheduledMessagesSection relativeNow={relativeNow} />
+          <AutomationsPageListPanel
+            controller={controller}
+            onOpenDetail={() => setIsDetailOpen(true)}
+          />
+        </>
       )}
     </main>
   )

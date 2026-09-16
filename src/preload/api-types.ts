@@ -16,6 +16,7 @@ import type {
   RateLimitsApi
 } from './api/agent-usage-api'
 import type { AiVaultApi } from './api/ai-vault-api'
+import type { ScheduledMessagesApi } from './api/scheduled-messages-api'
 import type { RateLimitWatcherApi } from './api/rate-limit-watcher-api'
 import type { AppApi, E2EApi, PlatformApi } from './api/app-api'
 import type { AutomationsApi } from './api/automation-api'
@@ -142,6 +143,7 @@ export type PreloadApi = {
   runtimeEnvironments: RuntimeApi['runtimeEnvironments']
   rateLimits: RateLimitsApi
   agentAutoResume: AgentAutoResumeApi
+  scheduledMessages: ScheduledMessagesApi
   rateLimitWatcher: RateLimitWatcherApi
   minimaxCredentials: MinimaxCredentialsApi
   grokAccounts: GrokAccountsApi

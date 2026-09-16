@@ -7,6 +7,7 @@ import { parsePaneKey } from '../../shared/stable-pane-id'
 import type { UsageLimitProvider } from '../../shared/agent-auto-resume-types'
 import type { RuntimePtyWorktreeRecord } from './runtime-terminal-state-records'
 import type {
+  AgentIdleEdgeEvent,
   UsageLimitStallEvent,
   UsageLimitStallSnapshot
 } from './runtime-usage-limit-stall-contracts'
@@ -21,11 +22,30 @@ export class OrcaRuntimeWithUsageLimitStall extends OrcaRuntimeWithResolveExitWa
     }
   }
 
+  /** Subscribe to the live agent-idle edge. Rides the same transition that
+   *  authorizes orchestration push delivery rather than introducing a second
+   *  detector, so consumers inherit its restore/respawn staleness guards.
+   *  One subscriber — the composition root's ScheduledMessageService. */
+  subscribeAgentIdleEdge(listener: (event: AgentIdleEdgeEvent) => void): () => void {
+    this.agentIdleEdgeListeners.add(listener)
+    return () => {
+      this.agentIdleEdgeListeners.delete(listener)
+    }
+  }
+
   protected emitUsageLimitStall(event: UsageLimitStallEvent): void {
     notifyRuntimeListeners(
       this.usageLimitStallListeners,
       (listener) => listener(event),
       'usage-limit-stall'
+    )
+  }
+
+  protected emitAgentIdleEdge(event: AgentIdleEdgeEvent): void {
+    notifyRuntimeListeners(
+      this.agentIdleEdgeListeners,
+      (listener) => listener(event),
+      'agent-idle-edge'
     )
   }
 

@@ -1,0 +1,391 @@
+import {
+  MAX_SCHEDULED_MESSAGES_PER_WORKSPACE,
+  SCHEDULED_MESSAGE_MAX_USAGE_LIMIT_WAIT_MS,
+  SCHEDULED_MESSAGE_MISSED_GRACE_MS,
+  SCHEDULED_MESSAGE_TICK_MS,
+  type ScheduledMessage,
+  type ScheduledMessageChanges,
+  type ScheduledMessageDraft,
+  type ScheduledMessageFailureReason,
+  type ScheduledMessagesSnapshot
+} from '../shared/scheduled-message-types'
+import { validateScheduledMessageDraft } from '../shared/scheduled-message-validation'
+import { resolveScheduledMessageDeliveryOutcome } from './scheduled-message-delivery-outcome'
+import { ScheduledMessageDeliveryState } from './scheduled-message-delivery-state'
+import { pickNextIdleMessage, ScheduledMessageIdleTimers } from './scheduled-message-idle-delivery'
+import type { AgentIdleEdgeEvent } from './runtime/orca-runtime'
+
+/** How long to let a `when-idle` edge settle before delivering. Some CLIs blip
+ *  through idle between tool calls; the guard would catch it anyway, but waiting
+ *  avoids racing the next `working` title on every such blip. */
+export const IDLE_EDGE_SETTLE_MS = 3_000
+
+export type ScheduledMessageNotification = {
+  kind: 'sent' | 'missed' | 'failed'
+  worktreeId: string
+  messageId: string
+  failureReason?: ScheduledMessageFailureReason
+}
+
+/** Where a message should be typed, resolved at delivery time rather than when
+ *  the user composed it — panes die and are replaced across a wait of hours. */
+export type ScheduledMessagePaneTarget = {
+  handle: string
+  ptyId: string | null
+}
+
+type ScheduledMessageStore = {
+  listScheduledMessages: () => ScheduledMessage[]
+  putScheduledMessage: (message: ScheduledMessage) => void
+  deleteScheduledMessage: (messageId: string) => void
+}
+
+export type ScheduledMessageServiceOptions = {
+  store: ScheduledMessageStore
+  /** Find a live pane running an agent for this workspace, or null if none. */
+  resolveAgentPane: (worktreeId: string) => Promise<ScheduledMessagePaneTarget | null>
+  /** Guarded write into an agent pane. Rejects rather than typing into a shell. */
+  deliver: (handle: string, text: string) => Promise<void>
+  /** True while the pane is sitting on a provider usage-limit banner or menu, in
+   *  which case delivery must defer. On a menu it also selects "stop and wait for
+   *  limit to reset" on the way past, which is why this is one call and not a
+   *  query plus an action: the pane's tail is then read once, not twice.
+   *
+   *  Going through this — rather than sharing state with AgentAutoResumeService —
+   *  is what keeps the two features from typing over each other. */
+  deferForUsageLimit: (ptyId: string, handle: string) => Promise<boolean>
+  createId: () => string
+  notify?: (notification: ScheduledMessageNotification) => void
+  onSnapshot?: (snapshot: ScheduledMessagesSnapshot) => void
+  tickMs?: number
+  missedGraceMs?: number
+  maxUsageLimitWaitMs?: number
+  idleSettleMs?: number
+  now?: () => number
+  logger?: Pick<Console, 'debug' | 'warn'>
+}
+
+/**
+ * Delivers user-authored one-shot messages into a workspace's live agent pane.
+ *
+ * Two timings, mirroring Telegram's scheduled messages:
+ *  - `at`: a wall-clock moment. Evaluated by a coarse tick, not a per-message
+ *    timer — the one-year horizon is far past setTimeout's ~24.8 day ceiling,
+ *    where an over-long delay silently fires immediately.
+ *  - `when-idle`: the next time this workspace's agent goes live-idle, the
+ *    analogue of "Send when online".
+ *
+ * State lives in the persisted store, not in memory: unlike an auto-resume wait,
+ * a message the user queued is a promise that must survive quitting the app.
+ */
+export class ScheduledMessageService {
+  private readonly opts: ScheduledMessageServiceOptions
+  private readonly now: () => number
+  private readonly logger: Pick<Console, 'debug' | 'warn'>
+  private readonly tickMs: number
+  private readonly missedGraceMs: number
+  private readonly maxUsageLimitWaitMs: number
+  private readonly idleSettleMs: number
+  private readonly delivery = new ScheduledMessageDeliveryState()
+  private readonly idleTimers = new ScheduledMessageIdleTimers()
+  private tickTimer: ReturnType<typeof setTimeout> | null = null
+  private disposed = false
+
+  constructor(options: ScheduledMessageServiceOptions) {
+    this.opts = options
+    this.now = options.now ?? Date.now
+    this.logger = options.logger ?? console
+    this.tickMs = options.tickMs ?? SCHEDULED_MESSAGE_TICK_MS
+    this.missedGraceMs = options.missedGraceMs ?? SCHEDULED_MESSAGE_MISSED_GRACE_MS
+    this.maxUsageLimitWaitMs =
+      options.maxUsageLimitWaitMs ?? SCHEDULED_MESSAGE_MAX_USAGE_LIMIT_WAIT_MS
+    this.idleSettleMs = options.idleSettleMs ?? IDLE_EDGE_SETTLE_MS
+  }
+
+  /** Runs one immediate catch-up pass before starting the tick, so messages that
+   *  came due while Orca was closed are resolved at launch rather than up to a
+   *  full tick later. */
+  start(): void {
+    void this.tick()
+  }
+
+  /** Chained rather than `setInterval`: a delivery pass can outlive one interval
+   *  (the send guard alone waits up to ~1s per message), and re-arming only after
+   *  the previous pass finishes makes overlapping scans impossible by
+   *  construction instead of by a re-entrancy flag. */
+  private async tick(): Promise<void> {
+    await this.evaluateDue()
+    if (this.disposed) {
+      return
+    }
+    this.tickTimer = setTimeout(() => {
+      void this.tick()
+    }, this.tickMs)
+    if (typeof this.tickTimer.unref === 'function') {
+      this.tickTimer.unref()
+    }
+  }
+
+  dispose(): void {
+    this.disposed = true
+    if (this.tickTimer) {
+      clearTimeout(this.tickTimer)
+      this.tickTimer = null
+    }
+    this.idleTimers.dispose()
+  }
+
+  // ── CRUD ───────────────────────────────────────────────────────────
+
+  add(draft: ScheduledMessageDraft): ScheduledMessage {
+    const error = validateScheduledMessageDraft(draft, this.now())
+    if (error) {
+      throw new Error(error)
+    }
+    const pending = this.opts.store
+      .listScheduledMessages()
+      .filter((message) => message.worktreeId === draft.worktreeId)
+    if (pending.length >= MAX_SCHEDULED_MESSAGES_PER_WORKSPACE) {
+      throw new Error('too-many-scheduled-messages')
+    }
+    const message: ScheduledMessage = {
+      id: this.opts.createId(),
+      worktreeId: draft.worktreeId,
+      text: draft.text,
+      timing: draft.timing,
+      createdAt: this.now(),
+      status: 'pending'
+    }
+    this.opts.store.putScheduledMessage(message)
+    this.emitSnapshot()
+    return message
+  }
+
+  /** Also the reschedule path: giving a `missed`/`failed` row a future time
+   *  returns it to `pending` and clears its spent attempt budget. */
+  update(messageId: string, changes: ScheduledMessageChanges): void {
+    const existing = this.find(messageId)
+    if (!existing) {
+      throw new Error('scheduled-message-not-found')
+    }
+    const edited = {
+      ...existing,
+      text: changes.text ?? existing.text,
+      timing: changes.timing ?? existing.timing
+    }
+    // Validate before touching delivery state: a rejected edit must leave the row
+    // exactly as it was, credit included.
+    const error = validateScheduledMessageDraft(edited, this.now())
+    if (error) {
+      throw new Error(error)
+    }
+    if (changes.timing) {
+      this.delivery.forgetDeferrals(messageId)
+    }
+    this.opts.store.putScheduledMessage(this.revived(edited))
+    this.emitSnapshot()
+  }
+
+  remove(messageId: string): void {
+    this.delivery.forget(messageId)
+    this.idleTimers.clear(messageId)
+    this.opts.store.deleteScheduledMessage(messageId)
+    this.emitSnapshot()
+  }
+
+  /** Manual override for a row the user is looking at — bypasses the schedule but
+   *  not the send guards, so it still cannot type into a shell. */
+  async sendNow(messageId: string): Promise<void> {
+    const message = this.find(messageId)
+    if (!message) {
+      throw new Error('scheduled-message-not-found')
+    }
+    // Send-now is most often used on a row that already failed or was missed.
+    // Return it to pending first, or the in-flight identity check below reads it
+    // as "no longer pending" and drops the send on the floor.
+    const pending = this.revived(message)
+    this.opts.store.putScheduledMessage(pending)
+    await this.attemptDelivery(pending)
+  }
+
+  /** Back to pending with a clean slate: clears the recorded failure and the
+   *  spent retry budget, so a revived row gets a full set of attempts. The
+   *  usage-limit credit is NOT cleared — a limit does not reset because the user
+   *  pressed "Send now", and wiping it would mark the row missed one tick later. */
+  private revived(message: ScheduledMessage): ScheduledMessage {
+    this.delivery.forgetAttempts(message.id)
+    const next: ScheduledMessage = { ...message, status: 'pending' }
+    delete next.failureReason
+    return next
+  }
+
+  getSnapshot(): ScheduledMessagesSnapshot {
+    return { messages: this.opts.store.listScheduledMessages() }
+  }
+
+  // ── Scheduling ─────────────────────────────────────────────────────
+
+  private async evaluateDue(): Promise<void> {
+    if (this.disposed) {
+      return
+    }
+    const now = this.now()
+    // flatMap rather than filter so `sendAt` is narrowed out of the timing union
+    // here, instead of needing an unreachable fallback in the loop below.
+    const due = this.opts.store
+      .listScheduledMessages()
+      .flatMap((message) =>
+        message.status === 'pending' && message.timing.kind === 'at' && message.timing.sendAt <= now
+          ? [{ message, sendAt: message.timing.sendAt }]
+          : []
+      )
+    for (const { message, sendAt } of due) {
+      if (this.disposed) {
+        return
+      }
+      // Past the grace window the app was closed (or asleep) long enough that
+      // the agent's context has moved on. Refusing to send is the safer half
+      // of the trade; the row survives so the user can send it themselves.
+      if (now - sendAt - this.delivery.deferredMs(message.id, now) > this.missedGraceMs) {
+        this.markFailed(message, 'expired-while-closed')
+        continue
+      }
+      await this.attemptDelivery(message)
+    }
+  }
+
+  /** Wired to the runtime's live agent-idle edge. */
+  handleIdleEdge(event: AgentIdleEdgeEvent): void {
+    if (this.disposed) {
+      return
+    }
+    const next = pickNextIdleMessage(this.opts.store.listScheduledMessages(), event.worktreeId)
+    if (!next || this.idleTimers.has(next.id)) {
+      return
+    }
+    this.idleTimers.arm(next.id, this.idleSettleMs, () => {
+      const current = this.find(next.id)
+      if (current?.status === 'pending') {
+        void this.attemptDelivery(current)
+      }
+    })
+  }
+
+  // ── Delivery ───────────────────────────────────────────────────────
+
+  private async attemptDelivery(message: ScheduledMessage): Promise<void> {
+    const pane = await this.resolvePaneSafely(message)
+    if (this.disposed || !this.isStillPending(message)) {
+      return
+    }
+    if (!pane) {
+      this.markFailed(message, 'no-pane')
+      return
+    }
+    // Defer, do not fail: the pane is showing a usage-limit banner or menu, where
+    // this text would land in the CLI's own prompt rather than reaching the agent.
+    //
+    // Unlike the watcher, the menu dismissal this triggers waits out no idle
+    // grace and checks no opt-in — scheduling a message at this pane is the
+    // consent, and the row is identified by label, so the worst case is that
+    // nothing is pressed.
+    if (pane.ptyId !== null && (await this.opts.deferForUsageLimit(pane.ptyId, pane.handle))) {
+      const now = this.now()
+      this.delivery.beginDeferral(message.id, now)
+      // A limit that outlasts the ceiling has taken the message past the point
+      // where sending it is a favour to anyone; tell the user instead.
+      if (this.delivery.deferredMs(message.id, now) > this.maxUsageLimitWaitMs) {
+        this.markFailed(message, 'usage-limit-outlasted')
+        return
+      }
+      this.logger.debug('[scheduled-messages] deferring, pane is usage-limit stalled', {
+        messageId: message.id
+      })
+      return
+    }
+    this.delivery.endDeferral(message.id, this.now())
+    try {
+      await this.opts.deliver(pane.handle, message.text)
+    } catch (error) {
+      if (this.disposed || !this.isStillPending(message)) {
+        return
+      }
+      this.onDeliveryError(message, error)
+      return
+    }
+    if (!this.isStillPending(message)) {
+      return
+    }
+    this.delivery.forget(message.id)
+    this.idleTimers.clear(message.id)
+    this.opts.store.deleteScheduledMessage(message.id)
+    this.opts.notify?.({ kind: 'sent', worktreeId: message.worktreeId, messageId: message.id })
+    this.emitSnapshot()
+  }
+
+  private async resolvePaneSafely(
+    message: ScheduledMessage
+  ): Promise<ScheduledMessagePaneTarget | null> {
+    try {
+      return await this.opts.resolveAgentPane(message.worktreeId)
+    } catch (error) {
+      this.logger.debug('[scheduled-messages] pane resolution failed', {
+        messageId: message.id,
+        error
+      })
+      return null
+    }
+  }
+
+  private onDeliveryError(message: ScheduledMessage, error: unknown): void {
+    const outcome = resolveScheduledMessageDeliveryOutcome(
+      error,
+      this.delivery.attemptsFor(message.id)
+    )
+    if (outcome.kind === 'retry') {
+      this.delivery.recordAttempt(message.id)
+      return
+    }
+    if (outcome.loud) {
+      this.logger.warn('[scheduled-messages] delivery failed', { messageId: message.id, error })
+    }
+    this.markFailed(message, outcome.reason)
+  }
+
+  private markFailed(
+    message: ScheduledMessage,
+    failureReason: ScheduledMessageFailureReason
+  ): void {
+    // `missed` is not an independent choice — it is precisely "the due moment
+    // came and went". Deriving it keeps the status and the reason from ever
+    // contradicting each other.
+    const status =
+      failureReason === 'expired-while-closed' || failureReason === 'usage-limit-outlasted'
+        ? 'missed'
+        : 'failed'
+    this.delivery.forget(message.id)
+    this.idleTimers.clear(message.id)
+    this.opts.store.putScheduledMessage({ ...message, status, failureReason })
+    this.opts.notify?.({
+      kind: status,
+      worktreeId: message.worktreeId,
+      messageId: message.id,
+      failureReason
+    })
+    this.emitSnapshot()
+  }
+
+  /** Every await yields, and the renderer can edit or delete the row meanwhile.
+   *  Re-read from the store rather than trusting the captured object. */
+  private isStillPending(message: ScheduledMessage): boolean {
+    return this.find(message.id)?.status === 'pending'
+  }
+
+  private find(messageId: string): ScheduledMessage | undefined {
+    return this.opts.store.listScheduledMessages().find((entry) => entry.id === messageId)
+  }
+
+  private emitSnapshot(): void {
+    this.opts.onSnapshot?.(this.getSnapshot())
+  }
+}

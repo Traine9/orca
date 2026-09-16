@@ -52,6 +52,10 @@ import {
   installSparsePresetPersistenceContext
 } from './sparse-preset-persistence'
 import {
+  ScheduledMessagePersistence,
+  installScheduledMessagePersistenceContext
+} from './scheduled-message-persistence'
+import {
   RateLimitWatcherPersistence,
   installRateLimitWatcherPersistenceContext
 } from './rate-limit-watcher-persistence'
@@ -88,6 +92,7 @@ export type StoreDomains = {
   automations: AutomationPersistence
   mobileTabSelections: MobileTabSelectionPersistence
   sparsePresets: SparsePresetPersistence
+  scheduledMessages: ScheduledMessagePersistence
   rateLimitWatcher: RateLimitWatcherPersistence
   ptyBindings: PtyBindingPersistenceOperations
   sshProfiles: SshProfileOperations
@@ -122,6 +127,7 @@ export function installStoreDomainContexts(target: Store, domains: StoreDomains)
   installRepoLifecycleOperationsContext(target, domains.repos)
   installMobileTabSelectionPersistenceContext(target, domains.mobileTabSelections)
   installSparsePresetPersistenceContext(target, domains.sparsePresets)
+  installScheduledMessagePersistenceContext(target, domains.scheduledMessages)
   installRateLimitWatcherPersistenceContext(target, domains.rateLimitWatcher)
   installAutomationPersistenceContext(target, domains.automations)
   installMetadataLineageOperationsContext(target, domains.metadata)
@@ -159,6 +165,7 @@ export function createStoreDomains(runtime: StoreRuntimeState): StoreDomains {
   const automations = new AutomationPersistence(runtime, flushBarriers, preferences)
   const mobileTabSelections = new MobileTabSelectionPersistence(runtime, scheduling)
   const sparsePresets = new SparsePresetPersistence(runtime, scheduling)
+  const scheduledMessages = new ScheduledMessagePersistence(runtime, scheduling)
   const rateLimitWatcher = new RateLimitWatcherPersistence(runtime, scheduling)
   const ptyBindings = new PtyBindingPersistenceOperations(runtime, sessions)
   const sshProfiles = new SshProfileOperations(runtime, scheduling, flushBarriers, repos)
@@ -188,6 +195,7 @@ export function createStoreDomains(runtime: StoreRuntimeState): StoreDomains {
     automations,
     mobileTabSelections,
     sparsePresets,
+    scheduledMessages,
     rateLimitWatcher,
     ptyBindings,
     sshProfiles,

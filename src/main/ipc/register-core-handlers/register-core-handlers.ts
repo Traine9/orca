@@ -39,6 +39,7 @@ import { setTrustedBrowserRendererWebContentsId } from '../browser-renderer-trus
 import { registerSessionHandlers } from '../session'
 import { registerSettingsHandlers } from '../settings'
 import { registerAgentAutoResumeHandlers } from '../agent-auto-resume'
+import { registerScheduledMessageHandlers } from '../scheduled-messages'
 import { registerRateLimitWatcherHandlers } from '../rate-limit-watcher'
 import { registerDiagnosticsHandlers } from '../diagnostics'
 import { registerSkillsHandlers } from '../skills'
@@ -81,6 +82,7 @@ import type { ClaudeAccountService } from '../../claude-accounts/service'
 import type { AutomationService } from '../../automations/service'
 import type { AgentAwakeService } from '../../agent-awake-service'
 import type { AgentAutoResumeService } from '../../agent-auto-resume-service'
+import type { ScheduledMessageService } from '../../scheduled-message-service'
 import type { CrashReportStore } from '../../crash-reporting/crash-report-store'
 import type { KeybindingService } from '../../keybindings/keybinding-service'
 import type {
@@ -128,7 +130,8 @@ export function registerCoreHandlers(
   lifecycleOptions: CoreHandlerLifecycleOptions = {},
   pluginService?: PluginService,
   marketplaceServices?: PluginMarketplaceHandlerServices,
-  agentAutoResumeService?: AgentAutoResumeService
+  agentAutoResumeService?: AgentAutoResumeService,
+  scheduledMessageService?: ScheduledMessageService
 ): void {
   // Why: on macOS the app can stay alive after all windows close, then
   // openMainWindow() is called again on 'activate'. ipcMain.handle() throws
@@ -183,6 +186,7 @@ export function registerCoreHandlers(
   registerComputerUsePermissionHandlers()
   registerSettingsHandlers(store, agentAwakeService)
   registerAgentAutoResumeHandlers(agentAutoResumeService)
+  registerScheduledMessageHandlers(scheduledMessageService)
   registerRateLimitWatcherHandlers(store, {
     onArmed: (tabId) => runtime.reemitUsageLimitStallsForTab(tabId)
   })
