@@ -214,16 +214,8 @@ export class OrcaRuntimeWithOnPtyExit extends OrcaRuntimeWithOnClientDisconnecte
       // so leaving this true would let push delivery type into the new process
       // on the dead one's idle. lastAgentStatus itself stays for `ps` display.
       pty.lastAgentStatusObservedLive = false
-      // Why: a PTY dying mid-stall can't be resumed by keystrokes; hand the
-      // dead-PTY case to the service (which notifies / defers to the sleeping-
-      // agent resume path) before the record is pruned.
-      //
-      // Only on the same death certificate the agent-status reconciliation above
-      // requires, and for the same reason: a synthetic -1 from a failed stop or a
-      // dropped relay is not evidence the process ended. The agent behind such an
-      // exit is very likely still sitting at the same limit — reporting it dead
-      // would notify the user about a pane that comes back, and drop the stall
-      // nothing will re-detect (a parked agent prints nothing on reconnect).
+      // A synthetic -1 from a failed stop or a dropped relay is not evidence the
+      // process ended, and a pane that comes back would lose a stall nothing re-detects.
       if (pty.usageLimitStall && processDeathCertified) {
         this.emitUsageLimitStall({
           kind: 'exited',
