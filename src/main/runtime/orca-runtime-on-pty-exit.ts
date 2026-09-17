@@ -218,12 +218,13 @@ export class OrcaRuntimeWithOnPtyExit extends OrcaRuntimeWithOnClientDisconnecte
       // dead-PTY case to the service (which notifies / defers to the sleeping-
       // agent resume path) before the record is pruned.
       //
-      // Only once the death is certified, though. An abnormal SSH exit keeps the
-      // surface alive for reconnection, and the agent on the far side is very
-      // likely still sitting at the same limit — reporting it dead here would
-      // notify the user about a pane that comes back, and drop the stall that
+      // Only on the same death certificate the agent-status reconciliation above
+      // requires, and for the same reason: a synthetic -1 from a failed stop or a
+      // dropped relay is not evidence the process ended. The agent behind such an
+      // exit is very likely still sitting at the same limit — reporting it dead
+      // would notify the user about a pane that comes back, and drop the stall
       // nothing will re-detect (a parked agent prints nothing on reconnect).
-      if (pty.usageLimitStall && !preservesAbnormalSshSurface) {
+      if (pty.usageLimitStall && processDeathCertified) {
         this.emitUsageLimitStall({
           kind: 'exited',
           ptyId,
