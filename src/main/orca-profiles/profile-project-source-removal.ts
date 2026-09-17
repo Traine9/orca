@@ -46,8 +46,7 @@ export function removeSourceRepo(
 }
 
 function removeRepoWorktreeMetadata(state: TransferProfileState, repoId: string): void {
-  // Profile-local, so a move drops them instead of carrying them: the prompt is addressed to a
-  // pane in this profile's session, and the target profile may not be opened for weeks.
+  // Not carried to the target: createTransferPayload copies no scheduledMessages.
   dropScheduledMessagesWhere(state, (worktreeId) => isRepoWorktreeId(repoId, worktreeId))
   for (const key of Object.keys(state.worktreeMeta)) {
     if (isRepoWorktreeId(repoId, key)) {
