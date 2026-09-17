@@ -1,14 +1,8 @@
 import type { PersistedState } from '../../shared/persisted-state-types'
 
-/**
- * Scheduled messages name a workspace but live outside `worktreeMeta`, so every path
- * that deletes a workspace's metadata has to sweep them as well. A row left behind
- * fails loudly at its due time (`no-pane`) or, for `when-idle`, waits forever on an
- * edge no surviving pane can emit.
- *
- * A leaf module on purpose: the prune paths sit under `tracking-repos`, which the
- * store's own runtime imports, so the sweep may not reach back into the store.
- */
+// Scheduled messages live outside `worktreeMeta`: a row outliving its workspace fails at
+// its due time (`no-pane`), or for `when-idle` never fires at all.
+
 export function dropScheduledMessagesForWorktree(
   state: PersistedState,
   worktreeId: string
