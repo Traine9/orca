@@ -40,14 +40,21 @@ export async function resolveWorktreeAgentPane(
 
 /** Types user text + Enter into an agent pane. The guard runs again as
  *  `beforeWrite` because the settled-prompt probe can take a second, inside
- *  which the pane can reach a permission prompt. */
+ *  which the pane can reach a permission prompt; `requireIdleAgent` extends that
+ *  recheck to an agent that started working again. */
 export async function sendGuardedAgentPrompt(
   runtime: OrcaRuntimeService,
   handle: string,
-  text: string
+  text: string,
+  options?: { requireIdleAgent?: boolean }
 ): Promise<void> {
   const assertSendable = (): Promise<void> =>
-    assertTerminalAgentSendable({ runtime, handle, assertWritable: () => {} })
+    assertTerminalAgentSendable({
+      runtime,
+      handle,
+      assertWritable: () => {},
+      requireIdleAgent: options?.requireIdleAgent === true
+    })
   await assertSendable()
   const beforeWrite = (): Promise<void> => assertSendable()
   if (await runtime.isTerminalRunningSettledPromptAgent(handle)) {

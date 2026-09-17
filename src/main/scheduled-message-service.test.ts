@@ -17,6 +17,10 @@ const WORKTREE = 'repo::wt'
 const HANDLE = 'handle-1'
 const PTY = 'pty-1'
 const NOW = 1_700_000_000_000
+// What the service asks the send guard for. Only a when-idle send requires the
+// agent to still be idle at the write; a clock send was never about idleness.
+const CLOCK_SEND = { requireIdleAgent: false }
+const IDLE_SEND = { requireIdleAgent: true }
 
 function makeHarness(
   options: { pane?: ScheduledMessagePaneTarget | null; stalled?: boolean } = {}
@@ -24,7 +28,9 @@ function makeHarness(
   let rows: ScheduledMessage[] = []
   let clock = NOW
   let nextId = 0
-  const deliver = vi.fn<(handle: string, text: string) => Promise<void>>(() => Promise.resolve())
+  const deliver = vi.fn<
+    (handle: string, text: string, options: { requireIdleAgent: boolean }) => Promise<void>
+  >(() => Promise.resolve())
   const notify = vi.fn<(n: ScheduledMessageNotification) => void>()
   // Mutable so a test can open a pane (or let the agent pick work back up) between
   // two delivery attempts, the way the real runtime does across a wait.
@@ -87,7 +93,7 @@ describe('ScheduledMessageService', () => {
 
     h.advance(61_000)
     await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
-    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'ship it')
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'ship it', CLOCK_SEND)
     expect(h.rows()).toHaveLength(0)
     expect(h.notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'sent' }))
   })
@@ -119,7 +125,7 @@ describe('ScheduledMessageService', () => {
     h.service.start()
     await vi.advanceTimersByTimeAsync(0)
 
-    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'ok')
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'ok', CLOCK_SEND)
     expect(h.rows()).toHaveLength(0)
   })
 
@@ -142,7 +148,7 @@ describe('ScheduledMessageService', () => {
 
     h.stall.stalled = false
     await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
-    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'later')
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'later', CLOCK_SEND)
   })
 
   it('still delivers when the usage limit outlasts the grace window', async () => {
@@ -172,7 +178,7 @@ describe('ScheduledMessageService', () => {
     h.stall.stalled = false
     h.advance(SCHEDULED_MESSAGE_TICK_MS)
     await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
-    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'resume the migration')
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'resume the migration', CLOCK_SEND)
     expect(h.rows()).toHaveLength(0)
   })
 
@@ -223,7 +229,7 @@ describe('ScheduledMessageService', () => {
     h.stall.stalled = false
     h.advance(SCHEDULED_MESSAGE_TICK_MS)
     await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
-    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'resume')
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'resume', CLOCK_SEND)
   })
 
   it('gives up once the usage limit outlasts the maximum wait', async () => {
@@ -277,7 +283,7 @@ describe('ScheduledMessageService', () => {
 
     h.service.handleIdleEdge({ ptyId: PTY, worktreeId: WORKTREE, leafId: 'leaf', tabId: 'tab' })
     await vi.advanceTimersByTimeAsync(IDLE_EDGE_SETTLE_MS)
-    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'on idle')
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'on idle', IDLE_SEND)
   })
 
   it('sends only one when-idle message per idle edge', async () => {
@@ -290,12 +296,12 @@ describe('ScheduledMessageService', () => {
     h.service.handleIdleEdge({ ptyId: PTY, worktreeId: WORKTREE, leafId: 'leaf', tabId: 'tab' })
     await vi.advanceTimersByTimeAsync(IDLE_EDGE_SETTLE_MS)
     expect(h.deliver).toHaveBeenCalledTimes(1)
-    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'first')
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'first', IDLE_SEND)
 
     h.service.handleIdleEdge({ ptyId: PTY, worktreeId: WORKTREE, leafId: 'leaf', tabId: 'tab' })
     await vi.advanceTimersByTimeAsync(IDLE_EDGE_SETTLE_MS)
     expect(h.deliver).toHaveBeenCalledTimes(2)
-    expect(h.deliver).toHaveBeenLastCalledWith(HANDLE, 'second')
+    expect(h.deliver).toHaveBeenLastCalledWith(HANDLE, 'second', IDLE_SEND)
   })
 
   it('retries a permission-prompt rejection, then fails once attempts run out', async () => {
@@ -345,7 +351,7 @@ describe('ScheduledMessageService', () => {
     // whose absence failed the row in the first place.
     h.agent.pane = { handle: HANDLE, ptyId: PTY }
     await h.service.sendNow(added.id)
-    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'retry me')
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'retry me', CLOCK_SEND)
     expect(h.rows()).toHaveLength(0)
   })
 
@@ -394,7 +400,31 @@ describe('ScheduledMessageService', () => {
     h.agent.idle = true
     h.service.handleIdleEdge({ ptyId: PTY, worktreeId: WORKTREE, leafId: 'leaf', tabId: 'tab' })
     await vi.advanceTimersByTimeAsync(IDLE_EDGE_SETTLE_MS)
-    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'when free')
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'when free', IDLE_SEND)
+  })
+
+  it('keeps a when-idle row pending when the write guard finds the agent busy', async () => {
+    // The last word on idleness belongs to the guard at the write itself, and a
+    // refusal there is not a delivery failure: the row keeps its place in the
+    // queue and the next edge arms it again.
+    const h = makeHarness()
+    h.deliver.mockRejectedValueOnce(new Error('terminal_guard_agent_busy'))
+    const added = h.service.add({
+      worktreeId: WORKTREE,
+      text: 'when free',
+      timing: { kind: 'when-idle' }
+    })
+    h.service.start()
+
+    h.service.handleIdleEdge({ ptyId: PTY, worktreeId: WORKTREE, leafId: 'leaf', tabId: 'tab' })
+    await vi.advanceTimersByTimeAsync(IDLE_EDGE_SETTLE_MS)
+    expect(h.rows()[0]).toMatchObject({ id: added.id, status: 'pending' })
+    expect(h.notify).not.toHaveBeenCalled()
+
+    h.service.handleIdleEdge({ ptyId: PTY, worktreeId: WORKTREE, leafId: 'leaf', tabId: 'tab' })
+    await vi.advanceTimersByTimeAsync(IDLE_EDGE_SETTLE_MS)
+    expect(h.deliver).toHaveBeenLastCalledWith(HANDLE, 'when free', IDLE_SEND)
+    expect(h.rows()).toHaveLength(0)
   })
 
   it('drops the armed idle timer when the row is retimed to a clock moment', async () => {

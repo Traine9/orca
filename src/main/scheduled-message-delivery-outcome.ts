@@ -26,6 +26,11 @@ export function resolveScheduledMessageDeliveryOutcome(
       return attemptsSoFar + 1 < MAX_DELIVERY_ATTEMPTS
         ? { kind: 'retry' }
         : { kind: 'fail', reason: 'send-failed', loud: false }
+    // The agent took work back up between the idle check and the write. Never a
+    // failure: the message keeps its place in the queue and the next idle edge
+    // arms it again, which is exactly what `when-idle` promised the user.
+    case 'agent-busy':
+      return { kind: 'retry' }
     // The guard proved no agent is running. Expected enough not to warrant a
     // console warning — the workspace simply isn't in a state to receive text.
     case 'no-agent':

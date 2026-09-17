@@ -11,7 +11,13 @@ import type { AppState } from '../types'
 // race the delivery service's removal.
 export type ScheduledMessagesSlice = {
   scheduledMessages: ScheduledMessage[]
+  /** Bumped by every pushed snapshot, so a mount-time hydrate that resolves late
+   *  cannot restore the queue as it stood before the push — a delivery that
+   *  removed a row while `get()` was in flight would otherwise come back. */
+  scheduledMessagesRevision: number
   setScheduledMessagesSnapshot: (snapshot: ScheduledMessagesSnapshot) => void
+  /** Apply a one-shot `get()` result, unless a push already landed. */
+  hydrateScheduledMessagesSnapshot: (snapshot: ScheduledMessagesSnapshot, revision: number) => void
 }
 
 export const createScheduledMessagesSlice: StateCreator<
@@ -21,7 +27,18 @@ export const createScheduledMessagesSlice: StateCreator<
   ScheduledMessagesSlice
 > = (set) => ({
   scheduledMessages: [],
-  setScheduledMessagesSnapshot: (snapshot) => set({ scheduledMessages: snapshot.messages })
+  scheduledMessagesRevision: 0,
+  setScheduledMessagesSnapshot: (snapshot) =>
+    set((state) => ({
+      scheduledMessages: snapshot.messages,
+      scheduledMessagesRevision: (state.scheduledMessagesRevision ?? 0) + 1
+    })),
+  hydrateScheduledMessagesSnapshot: (snapshot, revision) =>
+    set((state) =>
+      (state.scheduledMessagesRevision ?? 0) === revision
+        ? { scheduledMessages: snapshot.messages, scheduledMessagesRevision: revision + 1 }
+        : {}
+    )
 })
 
 const NO_MESSAGES: ScheduledMessage[] = []

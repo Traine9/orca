@@ -38,8 +38,10 @@ export type ScheduledMessageServiceOptions = {
   store: ScheduledMessageStore
   /** Find a live pane running an agent for this workspace, or null if none. */
   resolveAgentPane: (worktreeId: string) => Promise<ScheduledMessagePaneTarget | null>
-  /** Guarded write into an agent pane. Rejects rather than typing into a shell. */
-  deliver: (handle: string, text: string) => Promise<void>
+  /** Guarded write into an agent pane. Rejects rather than typing into a shell.
+   *  `requireIdleAgent` asks the guard to also refuse an agent that started
+   *  working again, which is the only check taken at the write itself. */
+  deliver: (handle: string, text: string, options: { requireIdleAgent: boolean }) => Promise<void>
   /** True while the pane is sitting on a provider usage-limit banner or menu, in
    *  which case delivery must defer. On a menu it also selects "stop and wait for
    *  limit to reset" on the way past, which is why this is one call and not a
