@@ -42,6 +42,7 @@ function makeHarness(
   const deferForUsageLimit = vi.fn<(ptyId: string, handle: string) => Promise<boolean>>(() =>
     Promise.resolve(stall.stalled)
   )
+  const snapshots: ScheduledMessage[][] = []
   const service = new ScheduledMessageService({
     store: {
       listScheduledMessages: () => rows,
@@ -59,6 +60,7 @@ function makeHarness(
     isAgentIdle: () => Promise.resolve(agent.idle),
     createId: () => `msg-${++nextId}`,
     notify,
+    onSnapshot: (snapshot) => snapshots.push(snapshot.messages),
     now: () => clock,
     logger: { debug: vi.fn(), warn: vi.fn() }
   })
@@ -69,6 +71,7 @@ function makeHarness(
     notify,
     stall,
     deferForUsageLimit,
+    snapshots,
     rows: () => rows,
     advance: (ms: number) => {
       clock += ms
@@ -323,6 +326,29 @@ describe('ScheduledMessageService', () => {
     expect(h.rows()[0]).toMatchObject({ status: 'failed', failureReason: 'send-failed' })
   })
 
+  it('publishes the revived row even when the send that follows defers', async () => {
+    // Send now on a failed row is a state change of its own: if the delivery then
+    // defers or retries, nothing else emits and the tab keeps the failed label.
+    const h = makeHarness()
+    h.deliver.mockRejectedValueOnce(new Error('terminal_guard_no_agent'))
+    const added = h.service.add({
+      worktreeId: WORKTREE,
+      text: 'now',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    h.advance(2000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(h.rows()[0]).toMatchObject({ status: 'failed' })
+
+    h.stall.stalled = true
+    h.snapshots.length = 0
+    await h.service.sendNow(added.id)
+
+    expect(h.deliver).toHaveBeenCalledTimes(1)
+    expect(h.snapshots.at(-1)?.[0]).toMatchObject({ status: 'pending' })
+  })
+
   it('fails immediately when no agent is running rather than typing into a shell', async () => {
     const h = makeHarness()
     h.deliver.mockRejectedValue(new Error('terminal_guard_no_agent'))
@@ -488,22 +514,32 @@ describe('ScheduledMessageService', () => {
   })
 
   it('does not spend a delivery attempt on a busy-agent refusal', async () => {
-    // The attempt budget exists to end a permission prompt nobody answers. A
-    // busy agent says nothing about that, so repeated near-misses must not use
-    // it up and fail a row that was never actually refused.
+    // The attempt budget exists to end a permission prompt nobody answers. A busy
+    // agent says nothing about that, so the busy refusal must leave the budget
+    // whole: one busy plus MAX - 1 permission refusals still leaves the row
+    // pending, where charging the busy one would have failed it on the last edge.
     const h = makeHarness()
-    h.deliver.mockRejectedValue(new Error('terminal_guard_agent_busy'))
+    h.deliver.mockRejectedValueOnce(new Error('terminal_guard_agent_busy'))
+    h.deliver.mockRejectedValue(new Error('terminal_guard_permission'))
     h.service.add({ worktreeId: WORKTREE, text: 'when free', timing: { kind: 'when-idle' } })
     h.service.start()
 
-    for (let edge = 0; edge < MAX_DELIVERY_ATTEMPTS + 2; edge++) {
+    const refuse = async (): Promise<void> => {
       h.service.handleIdleEdge({ ptyId: PTY, worktreeId: WORKTREE, leafId: 'leaf', tabId: 'tab' })
       await vi.advanceTimersByTimeAsync(IDLE_EDGE_SETTLE_MS)
     }
+    for (let edge = 0; edge < MAX_DELIVERY_ATTEMPTS; edge++) {
+      await refuse()
+    }
 
-    expect(h.deliver).toHaveBeenCalledTimes(MAX_DELIVERY_ATTEMPTS + 2)
+    expect(h.deliver).toHaveBeenCalledTimes(MAX_DELIVERY_ATTEMPTS)
     expect(h.rows()[0]).toMatchObject({ status: 'pending' })
     expect(h.notify).not.toHaveBeenCalled()
+
+    // The budget still ends: one more permission refusal is the MAX-th charged
+    // attempt, and the row fails.
+    await refuse()
+    expect(h.rows()[0]).toMatchObject({ status: 'failed', failureReason: 'send-failed' })
   })
 
   it('drops the armed idle timer when the row is retimed to a clock moment', async () => {

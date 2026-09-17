@@ -70,10 +70,12 @@ export function normalizeScheduledMessage(value: unknown): ScheduledMessage | nu
   ) {
     return null
   }
-  // An unknown status reads as pending: the row is still a promise the user made,
-  // and refusing to deliver it would be a silent loss.
+  // Absent status predates the field; an unrecognized one is a delivery state we cannot guess.
   const rawStatus = 'status' in value ? value.status : undefined
-  const status = isStatus(rawStatus) ? rawStatus : 'pending'
+  if (rawStatus !== undefined && !isStatus(rawStatus)) {
+    return null
+  }
+  const status = rawStatus ?? 'pending'
   const rawFailureReason = 'failureReason' in value ? value.failureReason : undefined
   const failureReason = isFailureReason(rawFailureReason) ? rawFailureReason : undefined
   return {

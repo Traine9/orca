@@ -40,9 +40,15 @@ describe('normalizeScheduledMessage', () => {
     expect(normalizeScheduledMessage(null)).toBeNull()
   })
 
-  it('treats an unknown status as pending rather than dropping the row', () => {
-    // The user's message is still a promise; refusing to deliver would lose it.
-    expect(normalizeScheduledMessage(validRow({ status: 'weird' }))).toMatchObject({
+  it('drops a row whose status is present but unreadable', () => {
+    // Defaulting it to pending would make a row of unknown delivery state
+    // deliverable again, and the tick would type its text into the agent.
+    expect(normalizeScheduledMessage(validRow({ status: 'weird' }))).toBeNull()
+  })
+
+  it('reads a row with no status at all as pending', () => {
+    // A row written before the field existed, not a corrupt one.
+    expect(normalizeScheduledMessage(validRow({ status: undefined }))).toMatchObject({
       status: 'pending'
     })
   })

@@ -25,7 +25,11 @@ export function useWorkspaceScheduledMessageActions({
 
   const handleScheduleMessage = useCallback(
     async (draft: { text: string; timing: ScheduledMessageTiming }) => {
-      await window.api.scheduledMessages?.add({ worktreeId, ...draft })
+      // A missing bridge or a service-less main resolves falsy, and a resolve closes the dialog.
+      const created = await window.api.scheduledMessages?.add({ worktreeId, ...draft })
+      if (!created) {
+        throw new Error('scheduled-message-add-failed')
+      }
     },
     [worktreeId]
   )
