@@ -372,6 +372,36 @@ describe('AgentAutoResumeService', () => {
     expect(service.getSnapshot().entries).toHaveLength(0)
   })
 
+  it('waits out a corrected reset that lands while the resend is in flight', async () => {
+    // The banner repaints with a later reset exactly while `continue` is being
+    // typed: the limit had not lifted, so that send was early. Spending the last
+    // attempt at the post-send verify would burn it just as early and give up
+    // 45 seconds into a wait of half an hour.
+    const { service, sendKeys, notify } = makeHarness()
+    let releaseSend = (): void => {}
+    sendKeys.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseSend = resolve
+        })
+    )
+    service.handleEvent(detectedEvent({ resetsAt: Date.now() + 1000 }))
+    await vi.advanceTimersByTimeAsync(1000 + BANNER_RESET_GRACE_MS)
+    expect(sendKeys).toHaveBeenCalledTimes(1)
+
+    const correctedIn = 30 * 60 * 1000
+    service.handleEvent(detectedEvent({ resetsAt: Date.now() + correctedIn }))
+    releaseSend()
+    await vi.advanceTimersByTimeAsync(POST_SEND_VERIFY_MS)
+
+    expect(sendKeys).toHaveBeenCalledTimes(1)
+    expect(notify).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'failed' }))
+    expect(service.getSnapshot().entries[0]).toMatchObject({ phase: 'waiting' })
+
+    await vi.advanceTimersByTimeAsync(correctedIn + BANNER_RESET_GRACE_MS)
+    expect(sendKeys).toHaveBeenCalledTimes(2)
+  })
+
   it('stops tracking and clears the timer when the agent resumes (cleared)', async () => {
     const { service, sendKeys } = makeHarness()
     service.handleEvent(detectedEvent({ resetsAt: Date.now() + 1000 }))
