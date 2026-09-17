@@ -38,15 +38,15 @@ export async function resolveWorktreeAgentPane(
   return fallback ? { handle: fallback.handle, ptyId: fallback.ptyId } : null
 }
 
-/** Types user text + Enter into an agent pane. The guard runs again as
- *  `beforeWrite` because the settled-prompt probe can take a second, inside
- *  which the pane can reach a permission prompt; `requireIdleAgent` extends that
- *  recheck to an agent that started working again. */
+export const TERMINAL_SEND_SUPERSEDED = 'terminal_send_superseded'
+
+/** Types user text + Enter into an agent pane. The guards run again as
+ *  `beforeWrite` because the settled-prompt probe can take a second. */
 export async function sendGuardedAgentPrompt(
   runtime: OrcaRuntimeService,
   handle: string,
   text: string,
-  options?: { requireIdleAgent?: boolean }
+  options?: { requireIdleAgent?: boolean; stillWanted?: () => boolean }
 ): Promise<void> {
   const assertSendable = (): Promise<void> =>
     assertTerminalAgentSendable({
@@ -56,7 +56,12 @@ export async function sendGuardedAgentPrompt(
       requireIdleAgent: options?.requireIdleAgent === true
     })
   await assertSendable()
-  const beforeWrite = (): Promise<void> => assertSendable()
+  const beforeWrite = async (): Promise<void> => {
+    await assertSendable()
+    if (options?.stillWanted?.() === false) {
+      throw new Error(TERMINAL_SEND_SUPERSEDED)
+    }
+  }
   if (await runtime.isTerminalRunningSettledPromptAgent(handle)) {
     await runtime.sendTerminalAgentPrompt(handle, text, { beforeWrite })
     return

@@ -266,13 +266,16 @@ export class ScheduledMessageService {
       return
     }
     this.delivery.endDeferral(message.id, this.now())
-    // The last look before the keystrokes leave: the defer check above awaits a
-    // pane read, which is long enough for the user to delete or rewrite the row.
+    // `stillWanted` repeats this at the write: the guard's probe waits up to a
+    // second, and an IPC edit lands inside it.
     if (this.disposed || !this.isStillDeliverable(message)) {
       return
     }
     try {
-      await this.opts.deliver(pane.handle, message.text, { requireIdleAgent })
+      await this.opts.deliver(pane.handle, message.text, {
+        requireIdleAgent,
+        stillWanted: () => this.isStillDeliverable(message)
+      })
     } catch (error) {
       if (this.disposed || !this.isStillDeliverable(message)) {
         return
