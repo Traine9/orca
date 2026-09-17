@@ -37,8 +37,8 @@ export class ScheduledMessagePersistence {
     return this[scheduledMessagePersistenceContext].runtime.state.scheduledMessages ?? []
   }
 
-  /** Insert or replace by id. The service is the only caller, so last write wins
-   *  is safe here in a way it is not for a renderer-supplied whole array. */
+  /** The service is the only caller, so last write wins is safe here in a way it
+   *  is not for a renderer-supplied whole array. */
   putScheduledMessage(message: ScheduledMessage): void {
     const { runtime, scheduling } = this[scheduledMessagePersistenceContext]
     const existing = runtime.state.scheduledMessages ?? []

@@ -17,9 +17,8 @@ const CHANNELS = [
   'scheduledMessages:sendNow'
 ] as const
 
-/** Why intents rather than a whole-array set: main owns the list, so a renderer
- *  edit can never clobber a concurrent removal by the delivery service. The
- *  renderer only ever mirrors the snapshot main pushes back. */
+/** Intents, not a whole-array set: main owns the list, so a renderer edit cannot
+ *  clobber a concurrent delivery. */
 export function registerScheduledMessageHandlers(service?: ScheduledMessageService): void {
   for (const channel of CHANNELS) {
     ipcMain.removeHandler(channel)

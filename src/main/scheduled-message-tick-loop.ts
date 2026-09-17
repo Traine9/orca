@@ -1,13 +1,5 @@
-/** The coarse scan that drives `at` timings.
- *
- *  A chained timer rather than `setInterval`: a delivery pass can outlive one
- *  interval (the send guard alone waits up to ~1s per message), and re-arming
- *  only after the previous pass finishes makes overlapping scans impossible by
- *  construction instead of by a re-entrancy flag.
- *
- *  Its own module because the property that matters here — the loop survives a
- *  failing pass — is one a test should be able to state directly, without a
- *  store, a pane resolver and a clock standing in the way. */
+/** Chained timer, not setInterval: a delivery pass can outlive one interval, so
+ *  overlapping scans are impossible by construction. */
 export class ScheduledMessageTickLoop {
   private timer: ReturnType<typeof setTimeout> | null = null
   private stopped = false
@@ -36,9 +28,8 @@ export class ScheduledMessageTickLoop {
     try {
       await this.pass()
     } catch (error) {
-      // This loop is the only thing that ever revisits a due message, so one
-      // unexpected throw — a destroyed window on a snapshot send, a store read
-      // racing teardown — must not end scheduling for the rest of the session.
+      // This loop is the only thing that ever revisits a due message: one throw
+      // must not end scheduling for the rest of the session.
       this.logger.warn('[scheduled-messages] tick failed', { error })
     }
     if (this.stopped) {

@@ -3,9 +3,8 @@ import { useAppStore } from '@/store'
 import type { ScheduledMessageTiming } from '../../../../shared/scheduled-message-types'
 import { selectPendingScheduledCount } from '@/store/slices/scheduled-messages'
 
-/** The scheduled-message item of the workspace context menu and its dialog.
- *  Lives in the menu model rather than the item because the compose dialog has
- *  to outlive the dropdown that opened it. */
+/** Lives in the menu model, not the item: the compose dialog has to outlive the
+ *  dropdown that opened it. */
 export function useWorkspaceScheduledMessageActions({
   menuOpen,
   worktreeId
@@ -14,8 +13,8 @@ export function useWorkspaceScheduledMessageActions({
   worktreeId: string
 }) {
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false)
-  // Why: this count only labels an item inside the open dropdown, but scanning
-  // the queue on every set() for every closed card is pure waste.
+  // Only read while the dropdown is open: scanning the queue on every set() for
+  // every closed card is waste.
   const pendingScheduledCount = useAppStore((s) =>
     menuOpen ? selectPendingScheduledCount(s, worktreeId) : 0
   )

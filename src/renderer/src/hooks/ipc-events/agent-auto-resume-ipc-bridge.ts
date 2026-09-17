@@ -15,11 +15,24 @@ export function registerAgentAutoResumeIpcBridge(unsubs: (() => void)[]): void {
   })
 
   // Promise.resolve: harnesses that stub window.api return a non-thenable from get().
+  const hydrate = <TSnapshot>(
+    pending: TSnapshot | Promise<TSnapshot | undefined> | undefined,
+    apply: (snapshot: TSnapshot) => void
+  ): void => {
+    void Promise.resolve(pending)
+      .then((snapshot) => {
+        if (snapshot && active) {
+          apply(snapshot)
+        }
+      })
+      .catch((error: unknown) => {
+        console.warn('[ipc-bridge] hydrate failed:', error)
+      })
+  }
+
   const autoResumeRevision = useAppStore.getState().autoResumeRevision ?? 0
-  void Promise.resolve(window.api.agentAutoResume?.get?.()).then((snapshot) => {
-    if (snapshot && active) {
-      useAppStore.getState().hydrateAutoResumeSnapshot?.(snapshot, autoResumeRevision)
-    }
+  hydrate(window.api.agentAutoResume?.get?.(), (snapshot) => {
+    useAppStore.getState().hydrateAutoResumeSnapshot?.(snapshot, autoResumeRevision)
   })
 
   const unsubscribeScheduledMessages = window.api.scheduledMessages?.onUpdate?.((snapshot) => {
@@ -29,18 +42,14 @@ export function registerAgentAutoResumeIpcBridge(unsubs: (() => void)[]): void {
     unsubs.push(unsubscribeScheduledMessages)
   }
   const scheduledRevision = useAppStore.getState().scheduledMessagesRevision ?? 0
-  void Promise.resolve(window.api.scheduledMessages?.get?.()).then((snapshot) => {
-    if (snapshot && active) {
-      useAppStore.getState().hydrateScheduledMessagesSnapshot?.(snapshot, scheduledRevision)
-    }
+  hydrate(window.api.scheduledMessages?.get?.(), (snapshot) => {
+    useAppStore.getState().hydrateScheduledMessagesSnapshot?.(snapshot, scheduledRevision)
   })
 
   // No subscription: the renderer is the only writer of the armed set, so the
   // one-shot hydrate is enough to survive a reload.
   const watcherRevision = useAppStore.getState().rateLimitWatcherRevision ?? 0
-  void Promise.resolve(window.api.rateLimitWatcher?.get?.()).then((snapshot) => {
-    if (snapshot && active) {
-      useAppStore.getState().hydrateRateLimitWatcherSnapshot?.(snapshot, watcherRevision)
-    }
+  hydrate(window.api.rateLimitWatcher?.get?.(), (snapshot) => {
+    useAppStore.getState().hydrateRateLimitWatcherSnapshot?.(snapshot, watcherRevision)
   })
 }

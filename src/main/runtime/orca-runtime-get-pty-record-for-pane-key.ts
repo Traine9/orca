@@ -335,12 +335,8 @@ export class OrcaRuntimeWithGetPtyRecordForPaneKey extends OrcaRuntimeWithPruneM
     }
   }
 
-  /** The single funnel for "this leaf's agent just went live-idle". Every caller
-   *  has already proven the edge (status is idle AND the observation is live, not
-   *  a restore seed) and cleared the delivery settle gate, so both consumers —
-   *  orchestration push delivery and the scheduled-message service — can safely
-   *  write to the pane from here. Scheduled messages deliberately ride this funnel
-   *  instead of a second idle edge of their own: one gate, one set of guarantees. */
+  /** Emits the idle edge scheduled messages deliver on; callers, not this method,
+   *  gate liveness. */
   protected deliverPendingMessagesForLeaf(leaf: RuntimeLeafRecord): void {
     this.orchestrationMailboxNotifications.deliverForLeaf(leaf)
     const ptyId = leaf.ptyId

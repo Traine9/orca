@@ -22,10 +22,7 @@ export class OrcaRuntimeWithUsageLimitStall extends OrcaRuntimeWithResolveExitWa
     }
   }
 
-  /** Subscribe to the live agent-idle edge. Rides the same transition that
-   *  authorizes orchestration push delivery rather than introducing a second
-   *  detector, so consumers inherit its restore/respawn staleness guards.
-   *  One subscriber — the composition root's ScheduledMessageService. */
+  /** Rides the same transition as orchestration push delivery, not a second detector. */
   subscribeAgentIdleEdge(listener: (event: AgentIdleEdgeEvent) => void): () => void {
     this.agentIdleEdgeListeners.add(listener)
     return () => {

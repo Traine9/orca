@@ -427,6 +427,85 @@ describe('ScheduledMessageService', () => {
     expect(h.rows()).toHaveLength(0)
   })
 
+  it('does not type a row the user deleted while the pane check was in flight', async () => {
+    // The usage-limit check reads the pane, which yields. A delete landing in
+    // that window has to win: the text would otherwise be typed into the agent
+    // with no row left to record that it was.
+    const h = makeHarness()
+    let releaseDefer = (): void => {}
+    h.deferForUsageLimit.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          releaseDefer = () => resolve(false)
+        })
+    )
+    const added = h.service.add({
+      worktreeId: WORKTREE,
+      text: 'never mind',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    h.advance(2000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+
+    h.service.remove(added.id)
+    releaseDefer()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(h.deliver).not.toHaveBeenCalled()
+    expect(h.rows()).toHaveLength(0)
+  })
+
+  it('does not send the pre-edit text of a row rewritten mid-delivery', async () => {
+    // `update` replaces the row under the same id. An in-flight pass holding the
+    // old object would type the sentence the user just rewrote away — and then
+    // delete their new row as if it had been sent.
+    const h = makeHarness()
+    let releaseDefer = (): void => {}
+    h.deferForUsageLimit.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          releaseDefer = () => resolve(false)
+        })
+    )
+    const added = h.service.add({
+      worktreeId: WORKTREE,
+      text: 'typo',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    h.advance(2000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+
+    h.service.update(added.id, { text: 'fixed' })
+    releaseDefer()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(h.deliver).not.toHaveBeenCalled()
+    expect(h.rows()[0]).toMatchObject({ text: 'fixed', status: 'pending' })
+
+    await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
+    expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'fixed', CLOCK_SEND)
+  })
+
+  it('does not spend a delivery attempt on a busy-agent refusal', async () => {
+    // The attempt budget exists to end a permission prompt nobody answers. A
+    // busy agent says nothing about that, so repeated near-misses must not use
+    // it up and fail a row that was never actually refused.
+    const h = makeHarness()
+    h.deliver.mockRejectedValue(new Error('terminal_guard_agent_busy'))
+    h.service.add({ worktreeId: WORKTREE, text: 'when free', timing: { kind: 'when-idle' } })
+    h.service.start()
+
+    for (let edge = 0; edge < MAX_DELIVERY_ATTEMPTS + 2; edge++) {
+      h.service.handleIdleEdge({ ptyId: PTY, worktreeId: WORKTREE, leafId: 'leaf', tabId: 'tab' })
+      await vi.advanceTimersByTimeAsync(IDLE_EDGE_SETTLE_MS)
+    }
+
+    expect(h.deliver).toHaveBeenCalledTimes(MAX_DELIVERY_ATTEMPTS + 2)
+    expect(h.rows()[0]).toMatchObject({ status: 'pending' })
+    expect(h.notify).not.toHaveBeenCalled()
+  })
+
   it('drops the armed idle timer when the row is retimed to a clock moment', async () => {
     const h = makeHarness()
     const added = h.service.add({

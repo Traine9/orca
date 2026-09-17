@@ -5,15 +5,10 @@ import type {
 } from '../../../../shared/scheduled-message-types'
 import type { AppState } from '../types'
 
-// Why: main owns the queue and pushes the whole list on every change; the
-// renderer is a pure mirror. Intents (add/update/delete/sendNow) go straight to
-// the preload API rather than through the store, so a renderer edit can never
-// race the delivery service's removal.
 export type ScheduledMessagesSlice = {
   scheduledMessages: ScheduledMessage[]
-  /** Bumped by every pushed snapshot, so a mount-time hydrate that resolves late
-   *  cannot restore the queue as it stood before the push — a delivery that
-   *  removed a row while `get()` was in flight would otherwise come back. */
+  /** Bumped by every pushed snapshot, so a late hydrate cannot restore the queue
+   *  as it stood before the push. */
   scheduledMessagesRevision: number
   setScheduledMessagesSnapshot: (snapshot: ScheduledMessagesSnapshot) => void
   /** Apply a one-shot `get()` result, unless a push already landed. */
@@ -68,8 +63,6 @@ export function selectPendingScheduledCount(
   return count
 }
 
-/** A workspace with a missed or failed row needs the user's attention, which the
- *  card badge renders differently from a plain pending count. */
 export function selectHasScheduledMessageProblem(
   state: Pick<ScheduledMessagesSlice, 'scheduledMessages'>,
   worktreeId: string
