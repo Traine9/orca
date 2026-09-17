@@ -10,9 +10,7 @@ import {
 import { pruneWorktreeStateForRepo } from './repo-worktree-pruning'
 import { gcStaleWorktreeMeta, WORKTREE_META_GC_GRACE_MS } from './worktree-metadata-normalization'
 
-// A pending row whose workspace is being deleted: it can never be delivered again, and
-// nothing else reclaims it — an `at` row fires a spurious no-pane failure, a `when-idle`
-// row waits for an edge no surviving pane can emit.
+// `when-idle` is the timing nothing else reclaims: no due time, so no attempt ever fails it.
 function makeMessage(worktreeId: string, id = `msg-${worktreeId}`): ScheduledMessage {
   return {
     id,
