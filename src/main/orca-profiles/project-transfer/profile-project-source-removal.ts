@@ -6,6 +6,7 @@ import {
   removeRepoFromWorkspaceSession
 } from './profile-project-session-state'
 import { isRepoWorktreeId, removeRepoWorktreeRecord } from './profile-project-worktree-identity'
+import { dropScheduledMessagesWhere } from '../../persistence/scheduled-message-worktree-sweep'
 
 export function removeSourceRepo(state: PersistedState, repoId: string): PersistedState {
   const next: PersistedState = {
@@ -43,6 +44,9 @@ export function removeSourceRepo(state: PersistedState, repoId: string): Persist
 }
 
 function removeRepoWorktreeMetadata(state: PersistedState, repoId: string): void {
+  // Profile-local, so a move drops them instead of carrying them: the prompt is addressed to a
+  // pane in this profile's session, and the target profile may not be opened for weeks.
+  dropScheduledMessagesWhere(state, (worktreeId) => isRepoWorktreeId(repoId, worktreeId))
   for (const key of Object.keys(state.worktreeMeta)) {
     if (isRepoWorktreeId(repoId, key)) {
       delete state.worktreeMeta[key]
