@@ -14,17 +14,9 @@ const MENU_REPAINT_MS = 300
 
 export type AgentPaneTarget = { handle: string; ptyId: string | null }
 
-/**
- * Which pane of a workspace should receive agent-directed text.
- *
- * Lives here rather than at a call site because "the runtime knows which pane
- * runs an agent" is runtime policy: it reads `listTerminals` and the per-leaf
- * agent status, and any future sender needs the same answer.
- *
- * Prefers a pane actually running an agent over merely the active one: a
- * workspace often has a shell tab focused while the agent works next door, and
- * the send guard would reject the shell rather than fall through to it.
- */
+/** Which pane of a workspace should receive agent-directed text. Prefers a pane
+ *  actually running an agent over the active one: a shell tab is often focused
+ *  while the agent works next door. */
 export async function resolveWorktreeAgentPane(
   runtime: OrcaRuntimeService,
   worktreeId: string
@@ -46,19 +38,9 @@ export async function resolveWorktreeAgentPane(
   return fallback ? { handle: fallback.handle, ptyId: fallback.ptyId } : null
 }
 
-/**
- * Type user-authored text plus Enter into an agent pane, guarded.
- *
- * Why the guard rather than a bare `sendTerminal`: this writes text the user
- * wrote and then presses Enter. The guard refuses a plain shell (where the text
- * would execute as commands) and refuses a permission prompt (where Enter would
- * silently approve a tool call).
- *
- * The guard is threaded in as `beforeWrite` as well as run up front, because
- * probing for a settled-prompt agent can take a second and the pane can reach a
- * permission prompt inside that window — re-checking at the write itself is the
- * same discipline `terminal.send` uses for `requireAgentStatus: 'sendable'`.
- */
+/** Types user text + Enter into an agent pane. The guard runs again as
+ *  `beforeWrite` because the settled-prompt probe can take a second, inside
+ *  which the pane can reach a permission prompt. */
 export async function sendGuardedAgentPrompt(
   runtime: OrcaRuntimeService,
   handle: string,
@@ -83,8 +65,9 @@ export async function sendGuardedAgentPrompt(
  *
  * Position is never assumed. Claude Code orders this menu differently depending
  * on a server-side flag, and one ordering puts a paid option first, so the row
- * is located by label and the highlight is read back before Enter. Every
- * uncertain reading returns false with the pane untouched.
+ * is located by label and the highlight is read back before Enter. An uncertain
+ * readback returns false, but the arrows sent before it have already moved the
+ * highlight.
  */
 export async function chooseUsageLimitReset(
   runtime: OrcaRuntimeService,
