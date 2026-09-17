@@ -6,7 +6,7 @@ import type {
 } from '../../shared/scheduled-message-types'
 
 export type ScheduledMessagesApi = {
-  /** Hydrate the queue after a renderer reload; main pushes every change after. */
+  /** Hydrates after a renderer reload; main pushes every change after. */
   get: () => Promise<ScheduledMessagesSnapshot>
   add: (draft: ScheduledMessageDraft) => Promise<ScheduledMessage | null>
   /** Edit text and/or timing. Also the reschedule path for a missed row. */

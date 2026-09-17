@@ -39,10 +39,8 @@ type AssertTerminalAgentSendableOptions = {
   runtime: OrcaRuntimeService
   handle: string
   assertWritable: () => void
-  /** Also refuse an agent that is mid-turn. Off by default: a user pressing Enter
-   *  in a terminal may legitimately interrupt a working agent. Callers who chose
-   *  a moment *because* the agent was idle turn it on, so the last read of the
-   *  status is the one taken at the write instead of seconds earlier. */
+  /** Off by default: a user pressing Enter may legitimately interrupt a working
+   *  agent. On for callers whose reason to write was that it had stopped. */
   requireIdleAgent?: boolean
 }
 

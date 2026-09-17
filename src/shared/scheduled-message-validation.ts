@@ -6,11 +6,8 @@ import {
   type ScheduledMessageTiming
 } from './scheduled-message-types'
 
-// Why normalize on load at all: orca-data.json is a plaintext file on disk, and
-// this is the one array whose contents the main process later types into a live
-// agent. A hand-edited or downgrade-mangled row must be dropped at the boundary
-// rather than surface later as a message sent to nowhere — or worse, a
-// non-string `text` reaching the terminal write path.
+// orca-data.json is hand-editable, and this is the one array main later types
+// into a live agent.
 
 const STATUSES: readonly ScheduledMessageStatus[] = ['pending', 'missed', 'failed']
 
@@ -117,10 +114,8 @@ export function validateScheduledMessageText(text: string): ScheduledMessageVali
   return text.trim().length === 0 ? 'empty-text' : null
 }
 
-/** Split out from the draft check because an edit that leaves the timing alone
- *  must not be judged on it: a row whose moment has already passed is exactly the
- *  one a user reopens to fix the wording, and re-validating its untouched time
- *  would reject the edit for a lateness they did not introduce. */
+/** Split out so an edit that leaves the timing alone is not judged on it: a row
+ *  whose moment has passed is exactly the one reopened to fix the wording. */
 export function validateScheduledMessageTiming(
   timing: ScheduledMessageTiming,
   now: number

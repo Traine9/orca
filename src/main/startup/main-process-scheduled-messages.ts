@@ -32,9 +32,8 @@ export function initializeMainProcessScheduledMessages(
       if (snapshot === null || !snapshot.blocksDelivery) {
         return false
       }
-      // Defer on anything that blocks, but only press keys at a chooser we can
-      // actually read: on an illegible screen a blind Enter would confirm
-      // whichever row the CLI has highlighted, and one of them costs money.
+      // Only press keys at a chooser we can read: on an illegible screen a blind
+      // Enter would confirm whichever row is highlighted, and one of them costs money.
       if (snapshot.reason === 'usage-limit-menu' && snapshot.actionable) {
         await chooseUsageLimitReset(runtimeService, ptyId, handle, snapshot.waitText)
       }

@@ -30,8 +30,7 @@ type ScheduledMessageComposeDialogProps = {
   onSubmit: (draft: { text: string; timing: ScheduledMessageTiming }) => Promise<void> | void
 }
 
-/** Default when composing fresh: an hour out, on the hour boundary the user is
- *  most likely to mean. Telegram seeds a near-future time the same way. */
+/** An hour out, on the minute boundary — the near-future default Telegram uses. */
 function defaultSendAt(): number {
   const value = new Date(Date.now() + 60 * 60 * 1000)
   value.setSeconds(0, 0)
@@ -72,10 +71,8 @@ function formErrorMessage(
   return validationMessage(error)
 }
 
-/** Main rejects with the bare code, but the IPC layer wraps it in its own
- *  "Error invoking remote method" prose — so match inside the message rather
- *  than comparing it. A rejection the dialog cannot name is still shown: silence
- *  here reads as "saved" for a message that was not. */
+/** The IPC layer wraps main's bare code in its own prose, so match inside the
+ *  message rather than comparing it. */
 function submitFailureMessage(failure: unknown): string {
   const raw = failure instanceof Error ? failure.message : String(failure)
   if (raw.includes('too-many-scheduled-messages')) {
@@ -96,12 +93,8 @@ function submitFailureMessage(failure: unknown): string {
   )
 }
 
-/**
- * Compose or edit one scheduled message. Shared by the workspace context menu
- * (create) and the Automations page (edit) so the two can never drift on what
- * is schedulable — the same validator gates the button here and the write in
- * the main process.
- */
+/** Compose or edit one scheduled message; shared by the workspace context menu
+ *  and the Automations page. */
 export function ScheduledMessageComposeDialog({
   open,
   message,
@@ -115,10 +108,8 @@ export function ScheduledMessageComposeDialog({
   const [timeValue, setTimeValue] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitFailure, setSubmitFailure] = useState<string | null>(null)
-  // Why a captured moment rather than Date.now() per render: validating against a
-  // moving clock would flip the error text under the user mid-typing. Re-seeded on
-  // every open (below) — this dialog stays mounted for the session, and judging
-  // tonight's pick against this morning's clock would accept a time already gone.
+  // Captured, not Date.now() per render: a moving clock flips the error text under
+  // the user mid-typing. Re-seeded on every open, since the dialog stays mounted.
   const [openedAt, setOpenedAt] = useState(() => Date.now())
   const [seed, setSeed] = useState<{ open: boolean; messageId: string | null }>({
     open: false,
@@ -142,9 +133,8 @@ export function ScheduledMessageComposeDialog({
     }
   }
 
-  // An Effect and not the seeding block above, because reading the clock during
-  // render is impure. One frame bound to the previous open's clock only affects
-  // the error text, and the submit path re-reads Date.now() before it sends.
+  // An Effect, not the seeding block above: reading the clock during render is
+  // impure, and the submit path re-reads Date.now() anyway.
   useEffect(() => {
     if (open) {
       setOpenedAt(Date.now())
@@ -170,9 +160,8 @@ export function ScheduledMessageComposeDialog({
         return
       }
       setSubmitFailure(null)
-      // Re-validate against the clock and not against the moment the dialog was
-      // opened: a dialog left sitting past the time it holds would otherwise
-      // submit a moment already gone and be rejected after the round trip.
+      // A dialog left sitting past the time it holds would submit a moment already
+      // gone and be rejected after the round trip.
       const lateError = validateScheduledMessageDraft({ text, timing }, Date.now())
       if (lateError) {
         setSubmitFailure(validationMessage(lateError))

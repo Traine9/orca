@@ -5,8 +5,7 @@ import type {
 import { translate } from '@/i18n/i18n'
 import { formatUiRelativeTime } from '@/i18n/relative-time-format'
 
-/** Local wall-clock parts for a `datetime-local`-style pair of inputs. Built by
- *  hand rather than via toISOString, which would shift into UTC and land the
+/** Built by hand rather than via toISOString, which shifts into UTC and lands the
  *  user on the wrong day near midnight. */
 export function toLocalDateTimeInputs(epochMs: number): { date: string; time: string } {
   const value = new Date(epochMs)
@@ -32,10 +31,9 @@ export function fromLocalDateTimeInputs(date: string, time: string): number | nu
   if (Number.isNaN(parsed.getTime())) {
     return null
   }
-  // Date silently normalizes a local time that does not exist — 02:30 on a
-  // spring-forward night becomes 03:30, and an out-of-range day rolls into the
-  // next month. Either way the user would be scheduling a moment they never
-  // picked, so round-trip the parts and refuse a mismatch instead.
+  // Date normalizes a local time that does not exist (02:30 on a spring-forward
+  // night, day 31 of a 30-day month) into a moment the user never picked, so
+  // round-trip the parts and refuse a mismatch.
   const roundTripped =
     parsed.getFullYear() === year &&
     parsed.getMonth() === month - 1 &&
@@ -58,10 +56,8 @@ function formatAbsolute(epochMs: number): string {
   }
 }
 
-/** Delegates to the app's one relative-time formatter rather than adding a third
- *  minute/hour/day ladder: it is locale-aware via Intl.RelativeTimeFormat and
- *  follows the configured UI language, which a hand-rolled "2h 10m" cannot. The
- *  sub-minute case stays local because Intl would render it as "this minute". */
+/** Delegates to the app's locale-aware formatter; the sub-minute case stays local
+ *  because Intl would render it as "this minute". */
 function formatRelative(deltaMs: number): string {
   if (Math.abs(deltaMs) < 60_000) {
     return translate('auto.components.scheduledMessages.inLessThanAMinute', 'in under a minute')

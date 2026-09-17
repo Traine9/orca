@@ -35,9 +35,7 @@ export type UsageLimitStallEvent =
       exitCode: number
     }
 
-/** A leaf's agent transitioned to a *live* idle — the same edge that authorizes
- *  orchestration push delivery. Consumers may write to the pane on this signal,
- *  which is why liveness is part of the edge (see deliverPendingMessagesForLeaf). */
+/** @see deliverPendingMessagesForLeaf — the emitter, and where liveness is (not) gated. */
 export type AgentIdleEdgeEvent = {
   ptyId: string
   worktreeId: string
