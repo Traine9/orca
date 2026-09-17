@@ -153,6 +153,8 @@ export class ScheduledMessageService {
     // resurrect a row the user meant to be done with.
     this.idleTimers.clear(messageId)
     this.opts.store.putScheduledMessage(pending)
+    // Emit first: a defer or retry writes nothing more, and the tab would keep the failed label.
+    this.emitSnapshot()
     await this.attemptDelivery(pending)
   }
 
