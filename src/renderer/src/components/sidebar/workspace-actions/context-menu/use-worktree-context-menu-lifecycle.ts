@@ -1,6 +1,5 @@
 import { useEffect, type MutableRefObject } from 'react'
 
-/** Fires onLifecycleComplete once the menu and every overlay it can open are closed. */
 export function useWorktreeContextMenuLifecycle({
   createGroupDialogActiveRef,
   createGroupDialogOpen,

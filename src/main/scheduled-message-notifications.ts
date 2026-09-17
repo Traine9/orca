@@ -13,9 +13,8 @@ export type ScheduledMessageNotifierDeps = {
 }
 
 function buildMissedBody(notification: ScheduledMessageNotification): string {
-  // A limit that outlasted the wait is not "Orca was closed": the app was running
-  // the whole time and deliberately held the message back, and telling the user
-  // otherwise sends them looking for a crash that never happened.
+  // A limit that outlasted the wait is not "Orca was closed" — saying so sends the
+  // user looking for a crash that never happened.
   if (notification.failureReason === 'usage-limit-outlasted') {
     return translateMain(
       'scheduledMessages.notification.missed.bodyUsageLimit',
@@ -81,14 +80,8 @@ function buildContent(notification: ScheduledMessageNotification): {
   }
 }
 
-/**
- * Deliver a native notification for a scheduled-message outcome, gated by the
- * global notifications switch.
- *
- * Unlike auto-resume, success IS notified: the user wrote this text minutes or
- * hours ago and has no other signal that it landed, whereas a resumed agent
- * announces itself by simply carrying on.
- */
+/** Unlike auto-resume, success IS notified: the user wrote this text hours ago and
+ *  has no other signal that it landed. */
 export function deliverScheduledMessageNotification(
   notification: ScheduledMessageNotification,
   deps: ScheduledMessageNotifierDeps
@@ -102,9 +95,8 @@ export function deliverScheduledMessageNotification(
   }
   const { title, body } = buildContent(notification)
   try {
-    // Honour the user's notification-sound choice the same way the central
-    // dispatch path does: anything but 'system' means Orca plays its own sound,
-    // so the OS one would double up.
+    // Anything but 'system' means Orca plays its own sound, so the OS one would
+    // double up.
     const native = new Notification({
       title,
       body,

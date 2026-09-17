@@ -9,12 +9,6 @@ type WorkspaceScheduledMessagesMenuItemProps = {
   onSelect: () => void
 }
 
-// Why its own file: WorktreeContextMenu.tsx already sits at the max-lines lint
-// ceiling, same reason WorkspaceRateLimitWatcherMenuItem lives apart.
-//
-// Why the count in the label: Telegram surfaces pending scheduled messages with
-// a clock badge in the chat itself. Orca's equivalent glance-point is this menu,
-// so the label carries the count rather than hiding it behind another click.
 export function WorkspaceScheduledMessagesMenuItem({
   pendingCount,
   disabled,

@@ -1,20 +1,9 @@
-// Why a separate module from agent-auto-resume-types: both features write into
-// a live agent pane, but they answer to different owners. Auto-resume reacts to
-// the provider; a scheduled message is something the user authored and expects
-// to survive quitting the app. Sharing a type here would tempt sharing the
-// in-memory-only lifecycle, which is exactly what must NOT be shared.
-
-/** When a scheduled message should be delivered.
- *  - `at`: wall-clock ms epoch, the Telegram "pick a date and time" case.
- *  - `when-idle`: deliver as soon as the workspace's agent stops working, the
- *    analogue of Telegram's "Send when online". Prevents cutting into a turn
- *    that is still in progress, which would interleave with the agent's own
- *    prompt and usually get swallowed. */
+/** `at` is a wall-clock ms epoch; `when-idle` waits for the agent to stop, so the
+ *  text cannot interleave with a turn still in progress. */
 export type ScheduledMessageTiming = { kind: 'at'; sendAt: number } | { kind: 'when-idle' }
 
-/** Why failures persist instead of being dropped: the user authored this text
- *  and is entitled to know it did not arrive. A row that stays visible with a
- *  reason is the asynchronous form of asking them what to do about it. */
+/** Failures persist rather than disappear: the user authored the text and is
+ *  entitled to know it never arrived. */
 export type ScheduledMessageStatus = 'pending' | 'missed' | 'failed'
 
 export type ScheduledMessageFailureReason =
@@ -26,23 +15,15 @@ export type ScheduledMessageFailureReason =
   | 'send-failed'
   /** Orca was closed past the late-delivery grace window. */
   | 'expired-while-closed'
-  /** The pane's usage limit outlasted the maximum wait, so the message was never
-   *  typed. Distinct from `expired-while-closed`: Orca was running the whole
-   *  time and deliberately holding the message back. */
+  /** The usage limit outlasted the maximum wait — unlike `expired-while-closed`,
+   *  Orca was running the whole time and holding the message back. */
   | 'usage-limit-outlasted'
 
-/** One user-authored message queued for a workspace's agent.
- *
- *  Stored flat in PersistedState (not on WorktreeMeta) for two reasons. First,
- *  the Automations tab lists these across every workspace, and worktree metadata
- *  is only reachable per-worktree through three differently-shaped sources.
- *  Second, meta travels as one opaque array through a read-modify-write RPC: a
- *  user editing one message while the service deletes another loses a write.
- *  Flat rows with a main-process owner serialize those two writers. */
+/** Stored flat in PersistedState, not on WorktreeMeta: meta travels as one opaque
+ *  array through a read-modify-write RPC, which loses a write when two owners edit. */
 export type ScheduledMessage = {
   /** Stable id so edit/delete can address one entry without index drift. */
   id: string
-  /** Owning workspace. Required now that rows no longer live under one. */
   worktreeId: string
   text: string
   timing: ScheduledMessageTiming
@@ -52,17 +33,15 @@ export type ScheduledMessage = {
   failureReason?: ScheduledMessageFailureReason
 }
 
-/** What the user supplies to create a message; main assigns the rest.
- *  Declared here because all four layers — renderer dialog, preload bridge, IPC
- *  handler, service — take this exact shape and must not drift. */
+/** What the user supplies to create a message; main assigns the rest. Shared so the
+ *  dialog, preload bridge, IPC handler and service cannot drift apart. */
 export type ScheduledMessageDraft = {
   worktreeId: string
   text: string
   timing: ScheduledMessageTiming
 }
 
-/** An edit. Both fields optional: the Automations row can change either alone,
- *  and supplying a future `timing` is also the reschedule path for a
+/** Both fields optional: a future `timing` alone is the reschedule path for a
  *  missed/failed row. */
 export type ScheduledMessageChanges = {
   text?: string
@@ -77,36 +56,36 @@ export const MAX_SCHEDULED_MESSAGES_PER_WORKSPACE = 100
  *  is more likely to be a typo than an intent. */
 export const MAX_SCHEDULE_HORIZON_MS = 365 * 24 * 60 * 60 * 1000
 
-/** How late a due message may still be delivered silently. Covers ordinary tick
- *  jitter and short restarts. Past it, Orca refuses to send: unlike a chat
- *  recipient, an agent's context has moved on, and a stale prompt landing hours
- *  later can answer a question nobody is asking any more. */
+/** How late a due message may still be delivered silently; past it the agent's
+ *  context has moved on. */
 export const SCHEDULED_MESSAGE_MISSED_GRACE_MS = 10 * 60 * 1000
 
-/** Ceiling on how long a due message may wait out a provider usage limit. Covers
- *  a 5-hour session window with room for a late reset and an overnight sleep. A
- *  weekly limit outlasts it — deliberately: by then the agent's context is as
- *  gone as it would be after a long shutdown, so the row is surfaced to the user
- *  instead of typed in a day late with nobody watching. */
+/** Ceiling on waiting out a usage limit: covers a 5-hour window plus an overnight
+ *  sleep, so a weekly limit deliberately outlasts it. */
 export const SCHEDULED_MESSAGE_MAX_USAGE_LIMIT_WAIT_MS = 12 * 60 * 60 * 1000
 
-/** Why a coarse tick rather than one timer per message: the one-year horizon is
- *  far past setTimeout's ~24.8 day ceiling, where a delay silently overflows to
- *  firing immediately. Scanning is also what survives sleep/suspend. */
+/** A coarse scan, not one timer per message: the one-year horizon is far past
+ *  setTimeout's ~24.8-day ceiling, where a delay overflows to firing immediately. */
 export const SCHEDULED_MESSAGE_TICK_MS = 30 * 1000
 
-/** Full-list push, mirroring the auto-resume snapshot channel. Sending the whole
- *  set rather than per-message deltas keeps the renderer a pure mirror of
- *  main-owned state, so a dropped event cannot desynchronize the tab. */
+/** Full-list push: a dropped event cannot desynchronize the tab. */
 export type ScheduledMessagesSnapshot = {
   messages: ScheduledMessage[]
 }
 
 export const SCHEDULED_MESSAGES_UPDATE_CHANNEL = 'scheduledMessages:update'
 
-/** `missed` is not an independent choice — it is precisely "the due moment came
- *  and went". Deriving it from the reason keeps the status and the reason from
- *  ever contradicting each other, on either side of the IPC boundary. */
+/** Id alone is not enough: `update` replaces a row under the same id, and `status`
+ *  legitimately flips back to pending. */
+export function isSameScheduledDelivery(a: ScheduledMessage, b: ScheduledMessage): boolean {
+  return a.id === b.id && a.text === b.text && timingKey(a.timing) === timingKey(b.timing)
+}
+
+function timingKey(timing: ScheduledMessageTiming): string {
+  return timing.kind === 'at' ? `at:${timing.sendAt}` : timing.kind
+}
+
+/** Derived, not stored: the status and the reason can never contradict each other. */
 export function scheduledMessageStatusForFailure(
   failureReason: ScheduledMessageFailureReason
 ): Exclude<ScheduledMessageStatus, 'pending'> {

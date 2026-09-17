@@ -13,11 +13,6 @@ type WorktreeCardScheduledMessagesBadgeProps = {
   worktreeId: string
 }
 
-// Why a separate component rather than another branch inside
-// WorktreeCardStatusSlot: that file already resolves review, branch, unread and
-// activity status through one deeply nested ternary, and this indicator is
-// orthogonal to all of them — a workspace can be idle, read, and still owe a
-// queued message.
 export function WorktreeCardScheduledMessagesBadge({
   worktreeId
 }: WorktreeCardScheduledMessagesBadgeProps): React.JSX.Element | null {

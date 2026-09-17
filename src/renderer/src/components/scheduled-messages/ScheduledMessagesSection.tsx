@@ -30,16 +30,8 @@ type ScheduledMessagesSectionProps = {
   relativeNow: number
 }
 
-/**
- * The management surface for scheduled messages: Telegram's clock-icon pending
- * list, widened to every workspace at once.
- *
- * Deliberately its own section rather than another kind inside the automations
- * list. They share this page because both are "things Orca does later", but an
- * automation is recurring, headless, and carries run history, while these are
- * one-shot messages typed into a session you are already in — and the list's
- * enabled/paused and last-run filters are meaningless for them.
- */
+/** Scheduled messages across every workspace; one-shot, so the automations list's
+ *  enabled/paused filters do not apply. */
 export function ScheduledMessagesSection({
   relativeNow
 }: ScheduledMessagesSectionProps): React.JSX.Element | null {
@@ -60,9 +52,7 @@ export function ScheduledMessagesSection({
   }, [messages])
 
   // Both intents reject with `scheduled-message-not-found` when the row was
-  // delivered or dropped between this render and the click. Nothing to show the
-  // user — the pushed snapshot removes the row either way — but the rejection
-  // still has to be consumed, or it surfaces as an unhandled one.
+  // delivered between this render and the click; the snapshot removes it anyway.
   const handleSendNow = useCallback((messageId: string) => {
     void window.api.scheduledMessages?.sendNow(messageId).catch((error: unknown) => {
       console.warn('[scheduled-messages] send now failed:', error)

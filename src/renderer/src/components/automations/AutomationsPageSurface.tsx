@@ -318,9 +318,6 @@ export function AutomationsPageSurface({
         />
       ) : (
         <>
-          {/* Above the automations list, not inside it: these are one-shot
-              messages into a live session, so the list's enabled/paused and
-              last-run filters do not apply to them. */}
           <ScheduledMessagesSection relativeNow={relativeNow} />
           <AutomationsPageListPanel
             controller={controller}
