@@ -31,9 +31,13 @@ type ScheduledMessageStore = {
 export type ScheduledMessageServiceOptions = {
   store: ScheduledMessageStore
   resolveAgentPane: (worktreeId: string) => Promise<ScheduledMessagePaneTarget | null>
-  /** Rejects rather than typing into a shell; `requireIdleAgent` also refuses an
-   *  agent that started working again, checked at the write itself. */
-  deliver: (handle: string, text: string, options: { requireIdleAgent: boolean }) => Promise<void>
+  /** Rejects rather than typing into a shell, and re-checks both options at the
+   *  write itself, not just on entry. */
+  deliver: (
+    handle: string,
+    text: string,
+    options: { requireIdleAgent: boolean; stillWanted: () => boolean }
+  ) => Promise<void>
   /** True while the pane sits on a usage-limit banner or menu; on a menu it also
    *  picks "wait for reset", so the tail is read once rather than twice. */
   deferForUsageLimit: (ptyId: string, handle: string) => Promise<boolean>
