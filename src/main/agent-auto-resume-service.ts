@@ -85,15 +85,11 @@ export class AgentAutoResumeService {
     // map, so presence here always means the wait is still live.
     if (existing?.reason === event.reason) {
       existing.handle = event.handle
-      // ...but a banner's reset time is re-parsed on every edge, and a later
-      // banner can carry a corrected (usually further out) one. Keeping the
-      // first would resend `continue` before the limit had actually lifted.
+      // A later banner can carry a corrected, further-out reset; keeping the first resends early.
       // Record it on any real change, so redraw churn still costs nothing.
       if (existing.reason === 'usage-limit-banner' && event.resetsAt !== existing.resetsAt) {
         existing.resetsAt = event.resetsAt
-        // Re-arm only while still waiting: an entry mid-action owns its own
-        // schedule, and a correction that lands during the send is honoured by
-        // the post-send verify, which waits the corrected reset out.
+        // Mid-action entries own their own schedule; the post-send verify honours a correction.
         if (existing.phase === 'waiting') {
           this.clearTimer(existing)
           this.armActionTimer(existing)
@@ -297,10 +293,8 @@ export class AgentAutoResumeService {
       this.giveUp(stall, 'max-attempts')
       return
     }
-    // A banner whose reset now sits in the future has told us the limit had not
-    // lifted when we typed — usually because a corrected banner landed while the
-    // send was in flight. Resending immediately would spend the last attempt
-    // just as early; wait the corrected reset out instead.
+    // A reset now in the future means we typed early; wait the corrected reset out
+    // instead of spending the last attempt just as early.
     const resetsAt = Math.max(
       stall.resetsAt ?? 0,
       this.opts.getProviderResetAt?.(stall.provider) ?? 0

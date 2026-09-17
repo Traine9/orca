@@ -3,10 +3,8 @@ import type { OrcaRuntimeService } from '../orca-runtime'
 const AGENT_STATUS_RECHECK_INTERVAL_MS = 150
 const AGENT_STATUS_RECHECK_TIMEOUT_MS = 1_050
 
-/** The guard's refusal codes. Exported because they are the whole contract
- *  between "the terminal refused" and every caller's recovery policy — a bare
- *  string literal matched in another file compiles clean after a rename here
- *  and silently stops matching. */
+/** Exported so callers match a constant: a bare literal elsewhere compiles clean
+ *  after a rename here and silently stops matching. */
 export const TERMINAL_GUARD_PERMISSION = 'terminal_guard_permission'
 export const TERMINAL_GUARD_NO_AGENT = 'terminal_guard_no_agent'
 export const TERMINAL_GUARD_NOT_WRITABLE = 'terminal_guard_not_writable'
