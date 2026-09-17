@@ -33,6 +33,26 @@ function makeRuntime(options: { status: 'working' | 'idle'; startsWorkingAtProbe
   return { runtime, written }
 }
 
+describe('sendGuardedAgentPrompt stillWanted', () => {
+  it('withdraws the text when the sender loses interest during the probe', async () => {
+    // The scheduled-message row can be rewritten or deleted while the settled-prompt
+    // probe runs, and the captured text would otherwise reach the agent anyway.
+    const { runtime, written } = makeRuntime({ status: 'idle' })
+
+    await expect(
+      sendGuardedAgentPrompt(runtime, HANDLE, 'typo', { stillWanted: () => false })
+    ).rejects.toThrow('terminal_send_superseded')
+    expect(written).toEqual([])
+  })
+
+  it('writes when the sender still wants it', async () => {
+    const { runtime, written } = makeRuntime({ status: 'idle' })
+
+    await sendGuardedAgentPrompt(runtime, HANDLE, 'fixed', { stillWanted: () => true })
+    expect(written).toEqual(['fixed'])
+  })
+})
+
 describe('sendGuardedAgentPrompt requireIdleAgent', () => {
   it('refuses at the write when the agent picked work back up after the first check', async () => {
     const { runtime, written } = makeRuntime({ status: 'idle', startsWorkingAtProbe: true })

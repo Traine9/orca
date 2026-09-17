@@ -19,8 +19,8 @@ const PTY = 'pty-1'
 const NOW = 1_700_000_000_000
 // What the service asks the send guard for. Only a when-idle send requires the
 // agent to still be idle at the write; a clock send was never about idleness.
-const CLOCK_SEND = { requireIdleAgent: false }
-const IDLE_SEND = { requireIdleAgent: true }
+const CLOCK_SEND = { requireIdleAgent: false, stillWanted: expect.any(Function) }
+const IDLE_SEND = { requireIdleAgent: true, stillWanted: expect.any(Function) }
 
 function makeHarness(
   options: { pane?: ScheduledMessagePaneTarget | null; stalled?: boolean } = {}
@@ -29,7 +29,11 @@ function makeHarness(
   let clock = NOW
   let nextId = 0
   const deliver = vi.fn<
-    (handle: string, text: string, options: { requireIdleAgent: boolean }) => Promise<void>
+    (
+      handle: string,
+      text: string,
+      options: { requireIdleAgent: boolean; stillWanted: () => boolean }
+    ) => Promise<void>
   >(() => Promise.resolve())
   const notify = vi.fn<(n: ScheduledMessageNotification) => void>()
   // Mutable so a test can open a pane (or let the agent pick work back up) between
@@ -511,6 +515,34 @@ describe('ScheduledMessageService', () => {
 
     await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
     expect(h.deliver).toHaveBeenCalledWith(HANDLE, 'fixed', CLOCK_SEND)
+  })
+
+  it('withdraws text the user rewrote inside the write window', async () => {
+    // The identity check before `deliver` is stale by the time the keystrokes
+    // leave: the send guard's own probe waits up to a second, and an IPC edit
+    // lands inside it. `stillWanted` is that check taken at the write.
+    const h = makeHarness()
+    const added = h.service.add({
+      worktreeId: WORKTREE,
+      text: 'typo',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    let withdrawn = false
+    h.deliver.mockImplementationOnce((_handle, _text, options) => {
+      h.service.update(added.id, { text: 'fixed' })
+      withdrawn = options.stillWanted() === false
+      return withdrawn ? Promise.reject(new Error('terminal_send_superseded')) : Promise.resolve()
+    })
+    h.advance(2000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(withdrawn).toBe(true)
+    expect(h.rows()[0]).toMatchObject({ text: 'fixed', status: 'pending' })
+    expect(h.notify).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
+    expect(h.deliver).toHaveBeenLastCalledWith(HANDLE, 'fixed', CLOCK_SEND)
   })
 
   it('does not spend a delivery attempt on a busy-agent refusal', async () => {
