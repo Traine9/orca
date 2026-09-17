@@ -74,7 +74,8 @@ export function ScheduledMessagesSection({
     [editing]
   )
 
-  if (sorted.length === 0) {
+  // Keep the dialog mounted: delivering the last row mid-edit would discard what the user typed.
+  if (sorted.length === 0 && editing === null) {
     return null
   }
 
