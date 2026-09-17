@@ -1,5 +1,4 @@
 import type { ScheduledMessage } from '../../../shared/scheduled-message-types'
-import type { PersistedState } from '../../../shared/persisted-state-types'
 import type { StoreRuntimeState } from './store-runtime-state'
 import type { WriteSchedulingOperations } from './write-scheduling'
 import { scheduleSave } from './write-scheduling'
@@ -10,20 +9,6 @@ const scheduledMessagePersistenceContext = Symbol('ScheduledMessagePersistence')
 type ScheduledMessagePersistenceContext = {
   runtime: ScheduledMessagePersistenceRuntime
   scheduling: WriteSchedulingOperations
-}
-
-/** Shared with removeWorktreeMeta, which sweeps in a pass that already schedules a save. */
-export function dropScheduledMessagesForWorktree(
-  state: PersistedState,
-  worktreeId: string
-): boolean {
-  const existing = state.scheduledMessages ?? []
-  const remaining = existing.filter((entry) => entry.worktreeId !== worktreeId)
-  if (remaining.length === existing.length) {
-    return false
-  }
-  state.scheduledMessages = remaining
-  return true
 }
 
 export class ScheduledMessagePersistence {
@@ -59,13 +44,6 @@ export class ScheduledMessagePersistence {
     }
     runtime.state.scheduledMessages = remaining
     scheduleSave(scheduling)
-  }
-
-  deleteScheduledMessagesForWorktree(worktreeId: string): void {
-    const { runtime, scheduling } = this[scheduledMessagePersistenceContext]
-    if (dropScheduledMessagesForWorktree(runtime.state, worktreeId)) {
-      scheduleSave(scheduling)
-    }
   }
 }
 
