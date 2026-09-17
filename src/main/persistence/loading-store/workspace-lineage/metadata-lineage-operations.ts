@@ -17,7 +17,7 @@ import {
 import { workspaceSessionPartitionIdsForHost } from '../../restoring-sessions/session-owner-removal'
 import { workspaceSessionPartitionHostId as workspaceSessionOwnerPartitionForHost } from '../../../../shared/workspace-session/workspace-session-partition-owner'
 import type { StoreRuntimeState } from '../store-runtime-state'
-import { dropScheduledMessagesForWorktree } from '../scheduled-message-persistence'
+import { dropScheduledMessagesForWorktree } from '../../scheduled-message-worktree-sweep'
 
 import { invalidateLocalWorktreeMetadataPruneInputs } from '../../../workspaces/catalog/local-worktree-metadata-prune-gate'
 import { type WriteSchedulingOperations, scheduleSave } from '../profile-writing/write-scheduling'
@@ -192,7 +192,6 @@ export class MetadataLineageOperations {
       delete this[metadataLineageOperationsContext].runtime.state.crossStoreLineageByChildKey?.[
         worktreeWorkspaceKey(worktreeId)
       ]
-      // Scheduled messages live outside worktreeMeta, so they need an explicit sweep here.
       dropScheduledMessagesForWorktree(
         this[metadataLineageOperationsContext].runtime.state,
         worktreeId
