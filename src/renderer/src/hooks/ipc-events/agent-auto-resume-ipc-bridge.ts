@@ -28,9 +28,10 @@ export function registerAgentAutoResumeIpcBridge(unsubs: (() => void)[]): void {
   if (unsubscribeScheduledMessages) {
     unsubs.push(unsubscribeScheduledMessages)
   }
+  const scheduledRevision = useAppStore.getState().scheduledMessagesRevision ?? 0
   void Promise.resolve(window.api.scheduledMessages?.get?.()).then((snapshot) => {
-    if (snapshot) {
-      useAppStore.getState().setScheduledMessagesSnapshot?.(snapshot)
+    if (snapshot && active) {
+      useAppStore.getState().hydrateScheduledMessagesSnapshot?.(snapshot, scheduledRevision)
     }
   })
 

@@ -8,8 +8,9 @@ const AGENT_STATUS_RECHECK_TIMEOUT_MS = 1_050
 export const TERMINAL_GUARD_PERMISSION = 'terminal_guard_permission'
 export const TERMINAL_GUARD_NO_AGENT = 'terminal_guard_no_agent'
 export const TERMINAL_GUARD_NOT_WRITABLE = 'terminal_guard_not_writable'
+export const TERMINAL_GUARD_AGENT_BUSY = 'terminal_guard_agent_busy'
 
-export type TerminalSendGuardRefusedReason = 'no-agent' | 'permission'
+export type TerminalSendGuardRefusedReason = 'no-agent' | 'permission' | 'agent-busy'
 
 /** Classify a guard rejection. `undefined` means the error came from somewhere
  *  else and the caller should treat it as an unexpected failure. */
@@ -23,6 +24,9 @@ export function getTerminalSendGuardRefusedReason(
   if (message.includes(TERMINAL_GUARD_NO_AGENT)) {
     return 'no-agent'
   }
+  if (message.includes(TERMINAL_GUARD_AGENT_BUSY)) {
+    return 'agent-busy'
+  }
   return undefined
 }
 
@@ -35,6 +39,11 @@ type AssertTerminalAgentSendableOptions = {
   runtime: OrcaRuntimeService
   handle: string
   assertWritable: () => void
+  /** Also refuse an agent that is mid-turn. Off by default: a user pressing Enter
+   *  in a terminal may legitimately interrupt a working agent. Callers who chose
+   *  a moment *because* the agent was idle turn it on, so the last read of the
+   *  status is the one taken at the write instead of seconds earlier. */
+  requireIdleAgent?: boolean
 }
 
 export async function assertTerminalAgentSendable(
@@ -56,6 +65,11 @@ export async function assertTerminalAgentSendable(
     if (agentStatus.isRunningAgent) {
       if (agentStatus.status === 'permission') {
         throw new Error(TERMINAL_GUARD_PERMISSION)
+      }
+      // Refuse rather than wait out the recheck window: a turn takes minutes,
+      // and the caller's answer to "not now" is to try again on the next idle.
+      if (options.requireIdleAgent === true && agentStatus.status === 'working') {
+        throw new Error(TERMINAL_GUARD_AGENT_BUSY)
       }
       return
     }
