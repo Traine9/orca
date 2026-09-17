@@ -23,6 +23,7 @@ import {
   pickNextIdleMessage,
   ScheduledMessageIdleTimers
 } from './scheduled-message-idle-delivery'
+import { ScheduledMessageTickLoop } from './scheduled-message-tick-loop'
 import type { AgentIdleEdgeEvent } from './runtime/orca-runtime'
 import {
   IDLE_EDGE_SETTLE_MS,
@@ -51,7 +52,6 @@ export class ScheduledMessageService {
   private readonly opts: ScheduledMessageServiceOptions
   private readonly now: () => number
   private readonly logger: Pick<Console, 'debug' | 'warn'>
-  private readonly tickMs: number
   private readonly missedGraceMs: number
   private readonly maxUsageLimitWaitMs: number
   private readonly idleSettleMs: number
@@ -62,50 +62,31 @@ export class ScheduledMessageService {
    *  clicks on Send now, or a tick landing on a row a settled idle edge just
    *  picked up — would type the same text into the agent twice. */
   private readonly inFlight = new Set<string>()
-  private tickTimer: ReturnType<typeof setTimeout> | null = null
+  private readonly loop: ScheduledMessageTickLoop
   private disposed = false
 
   constructor(options: ScheduledMessageServiceOptions) {
     this.opts = options
     this.now = options.now ?? Date.now
     this.logger = options.logger ?? console
-    this.tickMs = options.tickMs ?? SCHEDULED_MESSAGE_TICK_MS
     this.missedGraceMs = options.missedGraceMs ?? SCHEDULED_MESSAGE_MISSED_GRACE_MS
     this.maxUsageLimitWaitMs =
       options.maxUsageLimitWaitMs ?? SCHEDULED_MESSAGE_MAX_USAGE_LIMIT_WAIT_MS
     this.idleSettleMs = options.idleSettleMs ?? IDLE_EDGE_SETTLE_MS
+    this.loop = new ScheduledMessageTickLoop(
+      () => this.evaluateDue(),
+      options.tickMs ?? SCHEDULED_MESSAGE_TICK_MS,
+      this.logger
+    )
   }
 
-  /** Runs one immediate catch-up pass before starting the tick, so messages that
-   *  came due while Orca was closed are resolved at launch rather than up to a
-   *  full tick later. */
   start(): void {
-    void this.tick()
-  }
-
-  /** Chained rather than `setInterval`: a delivery pass can outlive one interval
-   *  (the send guard alone waits up to ~1s per message), and re-arming only after
-   *  the previous pass finishes makes overlapping scans impossible by
-   *  construction instead of by a re-entrancy flag. */
-  private async tick(): Promise<void> {
-    await this.evaluateDue()
-    if (this.disposed) {
-      return
-    }
-    this.tickTimer = setTimeout(() => {
-      void this.tick()
-    }, this.tickMs)
-    if (typeof this.tickTimer.unref === 'function') {
-      this.tickTimer.unref()
-    }
+    this.loop.start()
   }
 
   dispose(): void {
     this.disposed = true
-    if (this.tickTimer) {
-      clearTimeout(this.tickTimer)
-      this.tickTimer = null
-    }
+    this.loop.dispose()
     this.idleTimers.dispose()
   }
 
@@ -314,7 +295,7 @@ export class ScheduledMessageService {
     }
     this.delivery.endDeferral(message.id, this.now())
     try {
-      await this.opts.deliver(pane.handle, message.text)
+      await this.opts.deliver(pane.handle, message.text, { requireIdleAgent })
     } catch (error) {
       if (this.disposed || !this.isStillPending(message)) {
         return

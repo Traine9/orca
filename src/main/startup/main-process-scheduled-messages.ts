@@ -25,7 +25,8 @@ export function initializeMainProcessScheduledMessages(
       deleteScheduledMessage: (messageId) => activeStore.deleteScheduledMessage(messageId)
     },
     resolveAgentPane: (worktreeId) => resolveWorktreeAgentPane(runtimeService, worktreeId),
-    deliver: (handle, text) => sendGuardedAgentPrompt(runtimeService, handle, text),
+    deliver: (handle, text, options) =>
+      sendGuardedAgentPrompt(runtimeService, handle, text, options),
     deferForUsageLimit: async (ptyId, handle) => {
       const snapshot = runtimeService.getUsageLimitStallSnapshot(ptyId)
       if (snapshot === null || !snapshot.blocksDelivery) {

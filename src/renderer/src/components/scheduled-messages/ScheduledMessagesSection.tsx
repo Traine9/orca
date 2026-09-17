@@ -59,12 +59,20 @@ export function ScheduledMessagesSection({
     })
   }, [messages])
 
+  // Both intents reject with `scheduled-message-not-found` when the row was
+  // delivered or dropped between this render and the click. Nothing to show the
+  // user — the pushed snapshot removes the row either way — but the rejection
+  // still has to be consumed, or it surfaces as an unhandled one.
   const handleSendNow = useCallback((messageId: string) => {
-    void window.api.scheduledMessages?.sendNow(messageId)
+    void window.api.scheduledMessages?.sendNow(messageId).catch((error: unknown) => {
+      console.warn('[scheduled-messages] send now failed:', error)
+    })
   }, [])
 
   const handleDelete = useCallback((messageId: string) => {
-    void window.api.scheduledMessages?.delete(messageId)
+    void window.api.scheduledMessages?.delete(messageId).catch((error: unknown) => {
+      console.warn('[scheduled-messages] delete failed:', error)
+    })
   }, [])
 
   const handleSubmitEdit = useCallback(
