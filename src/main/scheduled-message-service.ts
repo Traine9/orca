@@ -206,21 +206,18 @@ export class ScheduledMessageService {
       // to a clock moment, which this edge no longer speaks for.
       const current = this.find(next.id)
       if (current?.status === 'pending' && current.timing.kind === 'when-idle') {
-        void this.attemptDelivery(current, { requireIdleAgent: true })
+        void this.attemptDelivery(current, true)
       }
     })
   }
 
-  private async attemptDelivery(
-    message: ScheduledMessage,
-    options?: { requireIdleAgent?: boolean }
-  ): Promise<void> {
+  private async attemptDelivery(message: ScheduledMessage, requireIdle = false): Promise<void> {
     if (this.inFlight.has(message.id)) {
       return
     }
     this.inFlight.add(message.id)
     try {
-      await this.deliverOnce(message, options?.requireIdleAgent === true)
+      await this.deliverOnce(message, requireIdle)
     } finally {
       this.inFlight.delete(message.id)
     }
@@ -252,6 +249,11 @@ export class ScheduledMessageService {
     // Defer, do not fail: at a usage-limit banner this text would land in the
     // CLI's own prompt.
     if (pane.ptyId !== null && (await this.opts.deferForUsageLimit(pane.ptyId, pane.handle))) {
+      // The check can press keys at a chooser, so an edit or a delete lands inside it —
+      // and the ceiling below settles the row, which would write the old one back.
+      if (this.disposed || !this.isStillDeliverable(message)) {
+        return
+      }
       const now = this.now()
       this.delivery.beginDeferral(message.id, now)
       // A limit that outlasts the ceiling has taken the message past the point

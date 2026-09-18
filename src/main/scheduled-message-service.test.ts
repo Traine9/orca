@@ -457,6 +457,38 @@ describe('ScheduledMessageService', () => {
     expect(h.rows()).toHaveLength(0)
   })
 
+  it('does not fail the rewritten row when the usage-limit wait runs out mid-check', async () => {
+    // Past the ceiling the deferral settles the row it was holding. Settling the
+    // captured one would put the sentence the user just rewrote away back on disk.
+    const h = makeHarness({ stalled: true })
+    const added = h.service.add({
+      worktreeId: WORKTREE,
+      text: 'typo',
+      timing: { kind: 'at', sendAt: NOW + 1000 }
+    })
+    h.advance(2000)
+    h.service.start()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(h.rows()[0]).toMatchObject({ status: 'pending' })
+
+    h.advance(SCHEDULED_MESSAGE_MAX_USAGE_LIMIT_WAIT_MS + 60_000)
+    let releaseDefer = (): void => {}
+    h.deferForUsageLimit.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          releaseDefer = () => resolve(true)
+        })
+    )
+    await vi.advanceTimersByTimeAsync(SCHEDULED_MESSAGE_TICK_MS)
+
+    h.service.update(added.id, { text: 'fixed' })
+    releaseDefer()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(h.rows()[0]).toMatchObject({ text: 'fixed', status: 'pending' })
+    expect(h.notify).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'missed' }))
+  })
+
   it('does not type a row the user deleted while the pane check was in flight', async () => {
     // The usage-limit check reads the pane, which yields. A delete landing in
     // that window has to win: the text would otherwise be typed into the agent
