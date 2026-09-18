@@ -175,10 +175,8 @@ export class ScheduledMessageService {
       return
     }
     const now = this.now()
-    for (const { message, sendAt } of pickDueMessages(
-      this.opts.store.listScheduledMessages(),
-      now
-    )) {
+    const due = pickDueMessages(this.opts.store.listScheduledMessages(), now)
+    for (const { message, sendAt } of due) {
       if (this.disposed) {
         return
       }
@@ -211,13 +209,16 @@ export class ScheduledMessageService {
     })
   }
 
-  private async attemptDelivery(message: ScheduledMessage, requireIdle = false): Promise<void> {
+  private async attemptDelivery(
+    message: ScheduledMessage,
+    requireIdleAgent = false
+  ): Promise<void> {
     if (this.inFlight.has(message.id)) {
       return
     }
     this.inFlight.add(message.id)
     try {
-      await this.deliverOnce(message, requireIdle)
+      await this.deliverOnce(message, requireIdleAgent)
     } finally {
       this.inFlight.delete(message.id)
     }
@@ -249,8 +250,7 @@ export class ScheduledMessageService {
     // Defer, do not fail: at a usage-limit banner this text would land in the
     // CLI's own prompt.
     if (pane.ptyId !== null && (await this.opts.deferForUsageLimit(pane.ptyId, pane.handle))) {
-      // The check can press keys at a chooser, so an edit or a delete lands inside it —
-      // and the ceiling below settles the row, which would write the old one back.
+      // deferForUsageLimit can press keys at a chooser, so an edit lands inside it.
       if (this.disposed || !this.isStillDeliverable(message)) {
         return
       }
