@@ -30,8 +30,7 @@ import { cn } from '@/lib/utils'
 import { WorktreeOpenInSubMenu } from './WorktreeOpenInMenu'
 import { WorktreeDeveloperMenu } from './WorktreeDeveloperMenu'
 import { WorkspaceSleepMenuItems } from './WorkspaceSleepMenuItems'
-import { WorkspaceRateLimitWatcherMenuItem } from './WorkspaceRateLimitWatcherMenuItem'
-import { WorkspaceScheduledMessagesMenuItem } from './WorkspaceScheduledMessagesMenuItem'
+import { WorkspaceAgentMenuItems } from './WorkspaceAgentMenuItems'
 import { isEventTargetInsideCurrentTarget } from './worktree-card-dom-events'
 import { translate } from '@/i18n/i18n'
 import { useOptionalShortcutLabel } from '@/hooks/useShortcutLabel'
@@ -214,17 +213,12 @@ export default function WorktreeContextMenuView({ model }: { model: WorktreeCont
                     )}
               </DropdownMenuItem>
               {folderWorkspaceId === null ? (
-                <>
-                  <WorkspaceRateLimitWatcherMenuItem
-                    worktreeId={worktree.id}
-                    disabled={isDeleting}
-                  />
-                  <WorkspaceScheduledMessagesMenuItem
-                    pendingCount={pendingScheduledCount}
-                    disabled={isDeleting}
-                    onSelect={handleOpenScheduleDialog}
-                  />
-                </>
+                <WorkspaceAgentMenuItems
+                  worktreeId={worktree.id}
+                  disabled={isDeleting}
+                  pendingScheduledCount={pendingScheduledCount}
+                  onOpenScheduleDialog={handleOpenScheduleDialog}
+                />
               ) : null}
               {repo ? (
                 <>
