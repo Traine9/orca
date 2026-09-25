@@ -214,4 +214,16 @@ describe('extractUsageLimitResetAt', () => {
     // whose getMonth() is NaN and fails the assertion just as loudly.
     expect(new Date(resetsAt ?? Number.NaN).getMonth()).toBe(5)
   })
+
+  it('reads the reset past the CLI hint printed under the banner', () => {
+    // Claude Code 2.1.280 prints this hint for accounts without usage credits.
+    const resetsAt = extractUsageLimitResetAt([
+      "You've hit your session limit · resets Jan 5 at 4pm",
+      '/upgrade to increase your usage limit.',
+      'worked for a while',
+      "  ⎿  You've hit your session limit · resets Jun 9 at 9am",
+      '     /upgrade to increase your usage limit.'
+    ])
+    expect(new Date(resetsAt ?? Number.NaN).getMonth()).toBe(5)
+  })
 })

@@ -115,6 +115,8 @@ export function detectUsageLimitStall(normalizedTail: string): UsageLimitStallSi
 
 const BANNER_LABEL_RE =
   /(?:session|usage|weekly|rate|5-?\s*hour|5h)\s*limit|hit\s*your|limit\s*reset/i
+// Claude's "/upgrade to increase your usage limit." hint has no reset
+const SLASH_COMMAND_HINT_RE = /^\s*\//
 
 // Why: Codex phrases its reset as "…or try again at Apr 23rd, 2026 10:42 AM.",
 // which the Claude "resets …" parser doesn't recognize. Match the date after
@@ -160,7 +162,7 @@ export function extractUsageLimitResetAt(tailLines: string[]): number | null {
   // newest banner's reset rather than the first one it finds top-down.
   let lastLabelIndex = -1
   for (let i = 0; i < tailLines.length; i++) {
-    if (BANNER_LABEL_RE.test(tailLines[i])) {
+    if (BANNER_LABEL_RE.test(tailLines[i]) && !SLASH_COMMAND_HINT_RE.test(tailLines[i])) {
       lastLabelIndex = i
     }
   }
