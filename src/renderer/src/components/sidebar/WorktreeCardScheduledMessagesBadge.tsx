@@ -11,10 +11,12 @@ import {
 
 type WorktreeCardScheduledMessagesBadgeProps = {
   worktreeId: string
+  className?: string
 }
 
 export function WorktreeCardScheduledMessagesBadge({
-  worktreeId
+  worktreeId,
+  className
 }: WorktreeCardScheduledMessagesBadgeProps): React.JSX.Element | null {
   const pendingCount = useAppStore((s) => selectPendingScheduledCount(s, worktreeId))
   const hasProblem = useAppStore((s) => selectHasScheduledMessageProblem(s, worktreeId))
@@ -29,7 +31,8 @@ export function WorktreeCardScheduledMessagesBadge({
         <span
           className={cn(
             'inline-flex shrink-0 items-center gap-0.5 text-[10px] leading-none',
-            hasProblem ? 'text-annotation-highlight' : 'text-muted-foreground'
+            hasProblem ? 'text-annotation-highlight' : 'text-muted-foreground',
+            className
           )}
           data-worktree-card-scheduled-messages=""
         >

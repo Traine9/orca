@@ -224,17 +224,25 @@ export function ScheduledMessageComposeDialog({
                 {translate('auto.components.scheduledMessages.atDateTime', 'At a date and time')}
               </label>
               {kind === 'at' ? (
-                <div className="flex gap-2 pl-6">
-                  <Input
-                    type="date"
-                    value={dateValue}
-                    onChange={(event) => setDateValue(event.target.value)}
-                  />
-                  <Input
-                    type="time"
-                    value={timeValue}
-                    onChange={(event) => setTimeValue(event.target.value)}
-                  />
+                <div className="flex flex-col gap-1.5 pl-6">
+                  <div className="flex gap-2">
+                    <Input
+                      type="date"
+                      value={dateValue}
+                      onChange={(event) => setDateValue(event.target.value)}
+                    />
+                    <Input
+                      type="time"
+                      value={timeValue}
+                      onChange={(event) => setTimeValue(event.target.value)}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground text-pretty">
+                    {translate(
+                      'auto.components.scheduledMessages.atTimeHint',
+                      'Sends at that time even if the agent is mid-task, interrupting it.'
+                    )}
+                  </p>
                 </div>
               ) : null}
               <label className="flex items-center gap-2 text-sm">
@@ -249,17 +257,14 @@ export function ScheduledMessageComposeDialog({
                   'When the agent is idle'
                 )}
               </label>
-              <p className="pl-6 text-xs text-muted-foreground text-pretty">
-                {kind === 'when-idle'
-                  ? translate(
-                      'auto.components.scheduledMessages.whenIdleHint',
-                      'Delivers the next time this workspace’s agent finishes working.'
-                    )
-                  : translate(
-                      'auto.components.scheduledMessages.atTimeHint',
-                      'Sends at that time even if the agent is mid-task, interrupting it.'
-                    )}
-              </p>
+              {kind === 'when-idle' ? (
+                <p className="pl-6 text-xs text-muted-foreground text-pretty">
+                  {translate(
+                    'auto.components.scheduledMessages.whenIdleHint',
+                    'Delivers the next time this workspace’s agent finishes working.'
+                  )}
+                </p>
+              ) : null}
             </div>
             {shownError ? <p className="text-xs text-destructive">{shownError}</p> : null}
           </div>

@@ -151,8 +151,14 @@ export function WorktreeCardParentContent({
             newCardStyle={newCardStyle}
             hasBranchIdentity={Boolean(branchIdentityDisplay)}
           />
-          <WorktreeCardScheduledMessagesBadge worktreeId={worktree.id} />
         </div>
+      ) : null}
+      {showCombinedStatusSlot ? (
+        // Beside the slot, not in it: the new-style slot is one icon wide.
+        <WorktreeCardScheduledMessagesBadge
+          worktreeId={worktree.id}
+          className={titleOnlyCard ? 'mr-1' : 'mr-1 mt-[3px]'}
+        />
       ) : null}
 
       {/* Content area */}
