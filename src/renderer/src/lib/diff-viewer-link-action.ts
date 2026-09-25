@@ -3,8 +3,12 @@ import type { HttpLinkAction } from '@/lib/browser/navigation/http-link-destinat
 import { openHttpLink } from '@/lib/browser/navigation/http-link-routing'
 import type { GlobalSettings } from '../../../shared/global-settings-types'
 import { buildDiffViewerUrl, isMergeRequestUrl } from '../../../shared/diff-viewer-links'
+import { getCcTabdiffBaseUrl } from '@/cc-tabdiff/cc-tabdiff-links'
 
-type DiffViewerSettingsAccessor = () => Pick<GlobalSettings, 'diffViewerBaseUrl'> | null | undefined
+type DiffViewerSettingsAccessor = () =>
+  | Pick<GlobalSettings, 'diffViewerBaseUrl' | 'ccTabdiffServer'>
+  | null
+  | undefined
 
 // Why: injected by the store like registerHttpLinkStoreAccessor, which avoids a
 // circular '@/store' import and leaves the action off wherever no store is registered.
@@ -19,7 +23,8 @@ export function buildDiffViewerLinkAction(
   url: string,
   worktreeId: string
 ): HttpLinkAction | undefined {
-  const baseUrl = settingsAccessor?.()?.diffViewerBaseUrl?.trim()
+  const settings = settingsAccessor?.()
+  const baseUrl = settings ? getCcTabdiffBaseUrl(settings) : ''
   if (!baseUrl || !isMergeRequestUrl(url)) {
     return undefined
   }

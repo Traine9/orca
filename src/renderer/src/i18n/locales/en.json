@@ -957,9 +957,8 @@
       },
       "diffViewer": {
         "title": "Diff viewer URL",
-        "description": "Open MR/PR links in an external diff viewer at this address (leave empty to disable)",
-        "invalid": "Enter an http(s) URL.",
-        "placeholder": "http://host:8787"
+        "description": "Open MR/PR links and tab diffs in the cc-tabdiff viewer at this address (empty: the built-in server)",
+        "invalid": "Enter an http(s) URL."
       }
     },
     "agents": {
@@ -25402,6 +25401,16 @@
       "refresh": "The previous Refresh could not be completed. Try Refresh again.",
       "read": "Usage could not be loaded. Try Refresh again.",
       "retry": "Refresh"
+    }
+  },
+  "ccTabdiff": {
+    "menu": {
+      "openTabDiff": "Open tab diff",
+      "allTabDiffs": "All tab diffs"
+    },
+    "settings": {
+      "serverTitle": "Run built-in diff viewer server",
+      "serverDescription": "Serve per-tab Claude Code diffs on port 8787 (LAN-reachable for the phone). Skipped when another server already answers there; turning it off stops only the server Orca started."
     }
   }
 }

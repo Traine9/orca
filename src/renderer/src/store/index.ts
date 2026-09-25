@@ -76,7 +76,7 @@ import { withStoreIdentityChurnProbe } from './diagnostics/store-identity-churn-
 import { withEditorBufferRecords } from './slices/editor/buffers/editor-buffer-record-lifecycle'
 import { withAgentConversationRetention } from './slices/agent-status/agent-conversation-retention'
 import { attachEditorBufferIdentityEvents } from './slices/editor/buffers/editor-buffer-identity-events'
-import { registerDiffViewerSettingsAccessor } from '@/lib/diff-viewer-link-action'
+import { registerDiffViewerSettingsAccessor } from '@/lib/diff-viewer-link-action' // cc-tabdiff mod
 import {
   registerRendererMemoryProfileContributor,
   summarizeStateCollectionSizes
@@ -187,7 +187,7 @@ registerHttpLinkGroupActionAvailability((request) =>
   canOfferHttpLinkGroupAction(useAppStore.getState(), request)
 )
 registerAppHttpLinkStateAccessor(() => useAppStore.getState())
-registerDiffViewerSettingsAccessor(() => useAppStore.getState().settings)
+registerDiffViewerSettingsAccessor(() => useAppStore.getState().settings) // cc-tabdiff mod
 attachEditorBufferIdentityEvents(() => useAppStore.getState())
 registerWindowsPathAccessEnvironments(() => useAppStore.getState().runtimeEnvironments)
 registerWorkspaceHttpLinkBrowserOpener(async (request) => {

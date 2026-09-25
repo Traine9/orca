@@ -2,6 +2,7 @@
 
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
+import { buildCcTabdiffServer } from '../../../../scripts/cc-tabdiff/prebuild.mjs' // cc-tabdiff mod
 
 const SUPPORTED_ARCHES = new Set(['x64', 'arm64'])
 
@@ -52,6 +53,7 @@ export function runLocalLinuxBuild({
   } else {
     delete env.ORCA_LINUX_ARM64_RELEASE
   }
+  buildCcTabdiffServer({ arch, cwd, env, execFile, platform }) // cc-tabdiff mod
   const pnpm = platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
   execFile(pnpm, buildLinuxElectronBuilderArgs(arch, extraArgs), {
     cwd,

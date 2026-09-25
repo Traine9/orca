@@ -144,7 +144,8 @@ export function buildDefaultSettings(args: {
     openLinksInAppPreferencePrompted: false,
     openLinksInAppModifierInverts: false,
     openLinksInAppInBackground: false,
-    diffViewerBaseUrl: '',
+    diffViewerBaseUrl: '', // cc-tabdiff mod
+    ccTabdiffServer: true, // cc-tabdiff mod
     terminalLinkActionPopoverEnabled: true,
     terminalLinkClickBehavior: 'actions',
     terminalUrlMiddleClickBehavior: 'open',

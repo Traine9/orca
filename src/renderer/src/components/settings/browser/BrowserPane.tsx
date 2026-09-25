@@ -12,7 +12,8 @@ import { BrowserSearchEngineSetting } from './BrowserSearchEngineSetting'
 import { BrowserLinkRoutingSetting } from './routing/BrowserLinkRoutingSetting'
 import { BrowserLinkRoutingModifierSetting } from './routing/BrowserLinkRoutingModifierSetting'
 import { BrowserLinkRoutingBackgroundSetting } from './routing/BrowserLinkRoutingBackgroundSetting'
-import { BrowserDiffViewerSetting } from './routing/BrowserDiffViewerSetting'
+import { BrowserDiffViewerSetting } from './routing/BrowserDiffViewerSetting' // cc-tabdiff mod
+import { CcTabdiffServerSetting } from '@/cc-tabdiff/CcTabdiffServerSetting' // cc-tabdiff mod
 import { BrowserTerminalLinkActionsSetting } from './routing/BrowserTerminalLinkActionsSetting'
 import { BrowserLocalhostWorktreeLabelsSetting } from './routing/BrowserLocalhostWorktreeLabelsSetting'
 import { BrowserClientHostedRemoteSetting } from './routing/BrowserClientHostedRemoteSetting'
@@ -327,7 +328,9 @@ export function BrowserPane({
       ) : null}
 
       {/* Why: not in getBrowserPaneSearchEntries (index-addressed); SearchableSetting filters it. */}
+      {/* cc-tabdiff mod */}
       <BrowserDiffViewerSetting settings={settings} updateSettings={updateSettings} />
+      <CcTabdiffServerSetting settings={settings} updateSettings={updateSettings} />
 
       {showTerminalLinkActions ? (
         <BrowserTerminalLinkActionsSetting

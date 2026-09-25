@@ -18,6 +18,7 @@ import type { NativeChatTabSession } from './tab-session-history-switch'
 import { CopyTabIdMenuItem } from './CopyTabIdMenuItem'
 import { useAllowAutoClose } from './use-allow-auto-close'
 import { CloseSplitPaneMenuItem } from './CloseSplitPaneMenuItem'
+import { CcTabdiffTabMenuItems } from '@/cc-tabdiff/CcTabdiffTabMenuItems' // cc-tabdiff mod
 
 const TAB_COLORS = [
   {
@@ -220,6 +221,8 @@ export function SortableTabContextMenu({
       >
         {t('components.tab.bar.SortableTabContextMenu.rateLimitWatcher', 'Rate limit watcher')}
       </ContextMenuCheckboxItem>
+      {/* cc-tabdiff mod */}
+      <CcTabdiffTabMenuItems tabId={tab.id} worktreeId={tab.worktreeId} />
       <ContextMenuSeparator />
       <ContextMenuItem onSelect={() => !isPinned && onClose(tab.id)} disabled={isPinned}>
         <X className="size-3.5" />

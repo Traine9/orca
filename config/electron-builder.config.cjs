@@ -88,6 +88,7 @@ const {
 const {
   buildMacShipItScheduling
 } = require('./scripts/desktop-distribution/macos/macos-shipit-scheduling.cjs')
+const ccTabdiff = require('../scripts/cc-tabdiff/electron-builder.cjs') // cc-tabdiff mod
 
 // Dev channels need release bundle ID/signature/notarization so Squirrel.Mac accepts updates and macOS retains app identity.
 const isMacHourly = process.env.ORCA_MAC_HOURLY === '1'
@@ -322,7 +323,8 @@ module.exports = {
     // afterPack copies the target's speech engine to resources/node_modules; asar would duplicate it and ship other variants.
     '!node_modules/{transcribe-cpp,@transcribe-cpp,koffi,@koromix}{,/**/*}',
     // CLI shim belongs beside resources/bin/orca.exe; unpacking source creates a second .cmd without its executable (#7351).
-    '!resources/win32{,/**/*}'
+    '!resources/win32{,/**/*}',
+    ...ccTabdiff.asarExcludes // cc-tabdiff mod
   ],
   // Node-mode CLI/daemon/foreign SQLite reader/serve entries cannot read asar; unpack their shared/main dependencies too.
   // Keep out/package.json’s CommonJS boundary and remote CLI WebSocket/E2EE deps. Electron-only workers may stay packed.
@@ -710,6 +712,7 @@ module.exports = {
         from: 'native/computer-use-linux/runtime.py',
         to: 'computer-use-linux/runtime.py'
       },
+      ccTabdiff.linuxResource, // cc-tabdiff mod
       featureWallResources
     ],
     // Keep local artifacts aligned with the release pipeline.

@@ -48,6 +48,7 @@ import { repairDuplicatePtyPanesOnStart } from '../runtime/terminal/identity/mov
 import { WslUsageReporter } from '../telemetry/wsl-usage-reporter'
 import { ALL_RPC_METHODS } from '../runtime/rpc/methods/rpc-method-registry'
 import { startClaudeCodeThemeSync } from '../claude/theme-sync/claude-code-theme-sync-schedule'
+import { startCcTabdiffService } from '../cc-tabdiff/start' // cc-tabdiff mod
 
 // Headless serve has no first window; timer fallback must still sweep trash.
 const WORKTREE_TRASH_SWEEP_FALLBACK_MS = 15_000
@@ -143,6 +144,7 @@ export async function initializeReadyRuntimeServices(): Promise<void> {
     })
   }, WORKTREE_TRASH_SWEEP_FALLBACK_MS)
   nativeTheme.themeSource = store.getSettings().theme ?? 'system'
+  startCcTabdiffService(store) // cc-tabdiff mod
   // Wait for shell PATH before probing Codex; start reconciliation early so first launch can share it.
   startCodexHooks({
     pathReady: app.isPackaged ? hydrateAgentCliShellPath() : Promise.resolve(),

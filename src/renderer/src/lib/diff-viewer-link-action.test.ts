@@ -11,8 +11,14 @@ const MR_URL = 'https://gitlab.example.com/group/project/-/merge_requests/42'
 const setActiveWorktreeMock = vi.fn()
 const createBrowserTabMock = vi.fn()
 const openUrlMock = vi.fn()
+type TestSettings = {
+  diffViewerBaseUrl?: string
+  openLinksInApp?: boolean
+  ccTabdiffServer?: boolean
+}
+const initialSettings: TestSettings = {}
 const storeState = {
-  settings: {} as { diffViewerBaseUrl?: string; openLinksInApp?: boolean },
+  settings: initialSettings,
   setActiveWorktree: setActiveWorktreeMock,
   createBrowserTab: createBrowserTabMock
 }
@@ -23,6 +29,7 @@ beforeEach(() => {
   registerHttpLinkStoreAccessor(() => storeState)
   registerDiffViewerSettingsAccessor(() => storeState.settings)
   vi.stubGlobal('window', { api: { shell: { openUrl: openUrlMock } } })
+  vi.stubGlobal('navigator', { userAgent: 'Node.js' })
 })
 
 describe('buildDiffViewerLinkAction', () => {
@@ -34,6 +41,19 @@ describe('buildDiffViewerLinkAction', () => {
 
   it('is absent when no diff viewer URL is configured', () => {
     storeState.settings = { diffViewerBaseUrl: '   ' }
+    expect(buildDiffViewerLinkAction(MR_URL, 'wt-1')).toBeUndefined()
+  })
+
+  it('falls back to the built-in cc-tabdiff server on the Linux desktop', () => {
+    vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (X11; Linux x86_64)' })
+    const action = buildDiffViewerLinkAction(MR_URL, 'wt-1')
+    void action?.run()
+    expect(createBrowserTabMock).toHaveBeenCalledWith(
+      'wt-1',
+      `http://127.0.0.1:8787/open?url=${encodeURIComponent(MR_URL)}`,
+      { activate: true }
+    )
+    storeState.settings = { ccTabdiffServer: false }
     expect(buildDiffViewerLinkAction(MR_URL, 'wt-1')).toBeUndefined()
   })
 

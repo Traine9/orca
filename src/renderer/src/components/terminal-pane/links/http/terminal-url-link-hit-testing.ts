@@ -19,7 +19,7 @@ import {
   type HttpLinkDestination,
   type HttpLinkRoutingPreferenceRequester
 } from '@/lib/browser/navigation/http-link-destinations'
-import { buildDiffViewerLinkAction } from '@/lib/diff-viewer-link-action'
+import { buildDiffViewerLinkAction } from '@/lib/diff-viewer-link-action' // cc-tabdiff mod
 import {
   requestTerminalLinkAction,
   type TerminalLinkActionContext
@@ -90,7 +90,7 @@ export function handleTerminalHttpLink(
           openRoutedHttpLink(url, { ...deps, forceDestination: 'orca', openInSourceGroup: true })
       }
     ),
-    diffViewer: buildDiffViewerLinkAction(url, deps.worktreeId)
+    diffViewer: buildDiffViewerLinkAction(url, deps.worktreeId) // cc-tabdiff mod
   })
 }
 

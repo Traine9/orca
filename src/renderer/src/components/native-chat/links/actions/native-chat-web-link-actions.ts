@@ -13,7 +13,7 @@ import {
   type HttpLinkDestination
 } from '@/lib/browser/navigation/http-link-destinations'
 import type { HttpLinkSourceOwner } from '@/lib/browser/navigation/http-link-routing'
-import { buildDiffViewerLinkAction } from '@/lib/diff-viewer-link-action'
+import { buildDiffViewerLinkAction } from '@/lib/diff-viewer-link-action' // cc-tabdiff mod
 
 export type NativeChatWebLinkDeps = {
   worktreeId: string
@@ -92,7 +92,7 @@ export function handleNativeChatWebLink(
       url,
       openInSourceGroup: () => openNativeChatWebLink(url, deps, 'orca', true)
     }),
-    diffViewer: buildDiffViewerLinkAction(url, deps.worktreeId)
+    diffViewer: buildDiffViewerLinkAction(url, deps.worktreeId) // cc-tabdiff mod
   })
   return true
 }

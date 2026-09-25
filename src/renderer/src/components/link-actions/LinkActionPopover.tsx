@@ -243,6 +243,7 @@ export function LinkActionPopover<TRequest extends LinkActionRequest>({
               onRun={() => runAction(action)}
             />
           ))}
+          {/* cc-tabdiff mod */}
           {request.diffViewer ? (
             <ActionRow
               action={request.diffViewer}
