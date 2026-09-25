@@ -37,6 +37,11 @@ function defaultSendAt(): number {
   return value.getTime()
 }
 
+/** A past time would open on the past-time error. */
+function initialSendAt(timing: ScheduledMessageTiming): number {
+  return timing.kind === 'at' && timing.sendAt > Date.now() ? timing.sendAt : defaultSendAt()
+}
+
 function validationMessage(error: ScheduledMessageValidationError | null): string | null {
   if (error === 'empty-text') {
     return translate('auto.components.scheduledMessages.errorEmpty', 'Enter a message to send.')
@@ -123,7 +128,7 @@ export function ScheduledMessageComposeDialog({
     setSeed({ open, messageId })
     if (open) {
       const timing = message?.timing ?? { kind: 'at' as const, sendAt: defaultSendAt() }
-      const inputs = toLocalDateTimeInputs(timing.kind === 'at' ? timing.sendAt : defaultSendAt())
+      const inputs = toLocalDateTimeInputs(initialSendAt(timing))
       setText(message?.text ?? '')
       setKind(timing.kind)
       setDateValue(inputs.date)

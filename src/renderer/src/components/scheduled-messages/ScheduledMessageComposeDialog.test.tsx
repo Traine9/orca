@@ -30,4 +30,26 @@ describe('ScheduledMessageComposeDialog timing hints', () => {
     expect(screen.queryByText(AT_TIME_HINT)).toBeNull()
     expect(precedes(idleOption, screen.getByText(WHEN_IDLE_HINT))).toBe(true)
   })
+
+  it('offers a future time when editing a message whose moment already passed', () => {
+    render(
+      <ScheduledMessageComposeDialog
+        open
+        message={{
+          id: 'm1',
+          worktreeId: 'wt-1',
+          text: 'Rebase onto main.',
+          timing: { kind: 'at', sendAt: Date.now() - 60 * 60 * 1000 },
+          createdAt: 0,
+          status: 'missed',
+          failureReason: 'expired-while-closed'
+        }}
+        onOpenChange={vi.fn()}
+        onSubmit={vi.fn()}
+      />
+    )
+
+    expect(screen.queryByText('Pick a time in the future.')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false)
+  })
 })
