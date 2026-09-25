@@ -25,7 +25,7 @@ export type TerminalLinkActionContext = {
 
 type LinkActionDetails = Pick<
   TerminalLinkActionRequest,
-  'destination' | 'copyValue' | 'kind' | 'primary' | 'alternate' | 'secondaryActions'
+  'destination' | 'copyValue' | 'kind' | 'primary' | 'alternate' | 'secondaryActions' | 'diffViewer'
 >
 
 export function requestTerminalLinkAction(

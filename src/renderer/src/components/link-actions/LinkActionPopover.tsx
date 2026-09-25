@@ -243,6 +243,13 @@ export function LinkActionPopover<TRequest extends LinkActionRequest>({
               onRun={() => runAction(action)}
             />
           ))}
+          {request.diffViewer ? (
+            <ActionRow
+              action={request.diffViewer}
+              shortcut={null}
+              onRun={() => runAction(request.diffViewer!)}
+            />
+          ) : null}
         </PopoverContent>
       ) : null}
     </Popover>

@@ -13,6 +13,7 @@ import {
   type HttpLinkDestination
 } from '@/lib/browser/navigation/http-link-destinations'
 import type { HttpLinkSourceOwner } from '@/lib/browser/navigation/http-link-routing'
+import { buildDiffViewerLinkAction } from '@/lib/diff-viewer-link-action'
 
 export type NativeChatWebLinkDeps = {
   worktreeId: string
@@ -90,7 +91,8 @@ export function handleNativeChatWebLink(
       ...deps,
       url,
       openInSourceGroup: () => openNativeChatWebLink(url, deps, 'orca', true)
-    })
+    }),
+    diffViewer: buildDiffViewerLinkAction(url, deps.worktreeId)
   })
   return true
 }

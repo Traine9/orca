@@ -954,6 +954,12 @@
         "title": "Passwords",
         "description": "Saved logins for Orca’s browser: add, import, edit and delete them.",
         "httpSuffix": " · http"
+      },
+      "diffViewer": {
+        "title": "Diff viewer URL",
+        "description": "Open MR/PR links in an external diff viewer at this address (leave empty to disable)",
+        "invalid": "Enter an http(s) URL.",
+        "placeholder": "http://host:8787"
       }
     },
     "agents": {
@@ -22431,6 +22437,9 @@
     },
     "dictation": {
       "stoppedAfterSilenceSeconds": "Stopped after {{seconds}} seconds of silence"
+    },
+    "linkActions": {
+      "diffViewer": "Diff viewer"
     }
   },
   "dashboardPopout": {

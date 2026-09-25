@@ -16,6 +16,8 @@ export type LinkActionRequest = {
   alternate?: LinkAction
   /** Rows after primary/alternate that have no click shortcut. */
   secondaryActions?: readonly LinkAction[]
+  /** Present only for MR/PR links when a diff viewer base URL is configured. */
+  diffViewer?: LinkAction
   /** Hands focus back to the surface that owned the click (terminal, chat transcript). */
   restoreFocus: () => void
 }

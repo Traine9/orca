@@ -204,6 +204,8 @@ export type GlobalSettings = GlobalSettingsBase & {
   openLinksInAppPreferencePrompted: boolean
   /** Opt-in: Shift+modifier click inverts openLinksInApp instead of always forcing the system browser. Off keeps the historical one-way escape hatch. */
   openLinksInAppModifierInverts?: boolean
+  /** Base URL of an external MR/PR diff viewer; a non-empty value adds a "Diff viewer" link action for MR/PR links. */
+  diffViewerBaseUrl?: string
   /** Show link actions on plain click in the terminal and chat; off restores modifier-click-only terminal links. */
   terminalLinkActionPopoverEnabled?: boolean
   /** Plain-click behavior for terminal links; optional for profiles saved before this setting existed. */

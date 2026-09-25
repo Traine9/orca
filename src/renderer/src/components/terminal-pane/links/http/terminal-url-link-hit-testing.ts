@@ -19,6 +19,7 @@ import {
   type HttpLinkDestination,
   type HttpLinkRoutingPreferenceRequester
 } from '@/lib/browser/navigation/http-link-destinations'
+import { buildDiffViewerLinkAction } from '@/lib/diff-viewer-link-action'
 import {
   requestTerminalLinkAction,
   type TerminalLinkActionContext
@@ -88,7 +89,8 @@ export function handleTerminalHttpLink(
         openInSourceGroup: () =>
           openRoutedHttpLink(url, { ...deps, forceDestination: 'orca', openInSourceGroup: true })
       }
-    )
+    ),
+    diffViewer: buildDiffViewerLinkAction(url, deps.worktreeId)
   })
 }
 
