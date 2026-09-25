@@ -1,12 +1,8 @@
-// Host-agnostic so self-hosted GitLab, GitHub Enterprise and Bitbucket Server links match too.
-const MERGE_REQUEST_PATH_PATTERNS: readonly RegExp[] = [
-  // GitLab: /group/project/-/merge_requests/N (older instances omit the "-/").
-  /^\/.+\/(?:-\/)?merge_requests\/\d+(?:\/.*)?$/,
-  // GitHub: /owner/repo/pull/N
-  /^\/[^/]+\/[^/]+\/pull\/\d+(?:\/.*)?$/,
-  // Bitbucket Cloud (/ws/repo/pull-requests/N) and Server (/projects/P/repos/R/pull-requests/N).
-  /^\/.+\/pull-requests\/\d+(?:\/.*)?$/
-]
+// Mirrors the diff viewer's own parser: GitLab and GitHub on any host, Bitbucket on bitbucket.org
+// only. Bitbucket Server (/projects/K/repos/R/pull-requests/N) is rejected there, so it is not offered.
+const GITLAB_MR_PATH = /^\/.+\/(?:-\/)?merge_requests\/0*[1-9]\d*(?:\/.*)?$/
+const GITHUB_PR_PATH = /^\/[^/]+\/[^/]+\/pull\/0*[1-9]\d*(?:\/.*)?$/
+const BITBUCKET_CLOUD_PR_PATH = /^\/[^/]+\/[^/]+\/pull-requests\/0*[1-9]\d*(?:\/.*)?$/
 
 export function isMergeRequestUrl(url: string): boolean {
   let parsed: URL
@@ -18,7 +14,15 @@ export function isMergeRequestUrl(url: string): boolean {
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     return false
   }
-  return MERGE_REQUEST_PATH_PATTERNS.some((pattern) => pattern.test(parsed.pathname))
+  const host = parsed.hostname.toLowerCase()
+  const path = parsed.pathname
+  if (host === 'bitbucket.org') {
+    return BITBUCKET_CLOUD_PR_PATH.test(path)
+  }
+  if (host === 'github.com' || host === 'www.github.com') {
+    return GITHUB_PR_PATH.test(path)
+  }
+  return GITLAB_MR_PATH.test(path) || GITHUB_PR_PATH.test(path)
 }
 
 export function buildDiffViewerUrl(baseUrl: string, mrUrl: string): string {

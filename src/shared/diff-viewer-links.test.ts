@@ -10,7 +10,7 @@ describe('isMergeRequestUrl', () => {
     'https://github.com/owner/repo/pull/123/files?w=1#diff-abc',
     'https://ghe.example.com/owner/repo/pull/1/',
     'https://bitbucket.org/workspace/repo/pull-requests/5',
-    'https://bitbucket.example.com/projects/P/repos/r/pull-requests/9/overview'
+    'https://bitbucket.org/workspace/repo/pull-requests/5/diff'
   ])('matches %s', (url) => {
     expect(isMergeRequestUrl(url)).toBe(true)
   })
@@ -23,6 +23,13 @@ describe('isMergeRequestUrl', () => {
     'https://github.com/owner/repo/issues/12',
     'https://github.com/pull/12',
     'https://bitbucket.org/workspace/repo/pull-requests',
+    // Bitbucket Server / Data Center: the diff viewer only supports bitbucket.org.
+    'https://bitbucket.example.com/projects/P/repos/r/pull-requests/9/overview',
+    'https://bitbucket.example.com/users/me/repos/r/pull-requests/9',
+    'https://bitbucket.example.com/ws/repo/pull-requests/9',
+    'https://bitbucket.org/projects/P/repos/r/pull-requests/9',
+    'https://github.com/group/project/-/merge_requests/1',
+    'https://github.com/owner/repo/pull/0',
     'ftp://github.com/owner/repo/pull/1',
     'file:///owner/repo/pull/1',
     'not a url',
