@@ -83,9 +83,17 @@ const PACKAGED_MAIN_SOURCE_RE = /^out\/main\/.+\.js$/
 const TYPE_DECLARATION_ARTIFACT_RE = /\.d\.(?:c|m)?ts(?:\.map)?$/
 const JS_SOURCE_MAP_ARTIFACT_RE = /\.(?:c|m)?js\.map$/
 
+// Why: `builtinModules` omits builtins that are still flagged experimental, so
+// `node:sqlite` (imported statically by the main bundle) is misread as a
+// third-party package with no copied node_modules. It is a real builtin, so
+// nothing needs copying. Remove once builtinModules lists it.
+const EXPERIMENTAL_NODE_BUILTINS = ['sqlite']
+
 const NODE_BUILTINS = new Set([
   ...builtinModules,
-  ...builtinModules.map((moduleName) => `node:${moduleName}`)
+  ...builtinModules.map((moduleName) => `node:${moduleName}`),
+  ...EXPERIMENTAL_NODE_BUILTINS,
+  ...EXPERIMENTAL_NODE_BUILTINS.map((moduleName) => `node:${moduleName}`)
 ])
 
 function packageNameFromSpecifier(specifier) {
