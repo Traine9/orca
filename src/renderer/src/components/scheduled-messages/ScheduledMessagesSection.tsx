@@ -122,7 +122,7 @@ export function ScheduledMessagesSection({
               </Tooltip>
               <span
                 className={cn(
-                  'w-52 shrink-0 truncate text-right text-xs',
+                  'min-w-52 max-w-[50%] shrink-0 truncate text-right text-xs',
                   statusLabel ? 'text-annotation-highlight' : 'text-muted-foreground'
                 )}
               >
