@@ -225,6 +225,13 @@ export default function RootLayout() {
                 <Stack.Screen name="troubleshoot" options={{ headerShown: false }} />
                 <Stack.Screen name="connection-log" options={{ headerShown: false }} />
                 <Stack.Screen name="about" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="cc-tabdiff"
+                  options={{
+                    headerShown: false,
+                    presentation: 'fullScreenModal'
+                  }} /* cc-tabdiff mod */
+                />
                 <Stack.Screen name="h" options={{ headerShown: false }} />
                 <Stack.Screen
                   name="new-workspace"

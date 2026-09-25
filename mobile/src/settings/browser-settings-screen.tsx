@@ -13,6 +13,7 @@ import {
 import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { SettingsNote, SettingsScreen, SettingsSection } from './settings-screen-frame'
+import { CcTabdiffSettingsSection } from '../cc-tabdiff/CcTabdiffSettingsSection' // cc-tabdiff mod
 
 function linkModeOptions(t: Translate): PickerOption<MobileTerminalLinkOpenMode>[] {
   return [
@@ -161,6 +162,7 @@ export default function BrowserSettingsScreen({
           onPress={() => setPickerOpen(true)}
         />
       </SettingsSection>
+      <CcTabdiffSettingsSection /* cc-tabdiff mod */ />
     </SettingsScreen>
   )
 }

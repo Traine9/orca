@@ -15,6 +15,7 @@ import { colors } from '../theme/mobile-theme'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import type { MobileSessionController } from './use-mobile-session-controller'
+import { ccTabdiffHeaderActions } from '../cc-tabdiff/sheet-actions' // cc-tabdiff mod
 
 type Props = {
   controller: MobileSessionController
@@ -130,7 +131,7 @@ export function MobileSessionHeaderMoreMenu({ controller, anchorRef, actionsColl
     <PullDownMenu
       visible={showHeaderMoreActions}
       anchorRef={anchorRef}
-      groups={[panels, view, tabs]}
+      groups={[panels, view, tabs, ccTabdiffHeaderActions(controller)] /* cc-tabdiff mod */}
       onClose={() => setShowHeaderMoreActions(false)}
     />
   )

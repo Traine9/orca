@@ -9,6 +9,7 @@ import { themedStyleSheet } from '../../theme/themed-styles'
 import { useMobileColorScheme } from '../../theme/use-mobile-color-scheme'
 import type { TerminalFrame } from '../terminal-webview-messages'
 import { TerminalWebView } from '../TerminalWebView'
+import { withCcTabdiffMrChooser } from '../../cc-tabdiff/navigation' // cc-tabdiff mod
 import type {
   TerminalKeyboardAvoidanceMetrics,
   TerminalModes,
@@ -189,7 +190,7 @@ export function TerminalPaneView({
             onTerminalInteraction={() => onTerminalInteraction(handle)}
             onTerminalTap={() => onTerminalTap(handle)}
             onFileTap={(candidates) => onFileTap(handle, candidates)}
-            onOpenUrl={(url) => onOpenUrl(handle, url)}
+            onOpenUrl={(url) => withCcTabdiffMrChooser(url, () => onOpenUrl(handle, url))} // cc-tabdiff mod
             onTextScaleChange={onTextScaleChange}
             onCellBoxChange={() => onCellBoxChange(handle)}
           />

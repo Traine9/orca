@@ -184,6 +184,8 @@ export function saveTerminalLinkOpenMode(mode: MobileTerminalLinkOpenMode): Prom
   return write
 }
 
+export { loadCcTabdiffBaseUrl, saveCcTabdiffBaseUrl } from '../cc-tabdiff/preference' // cc-tabdiff mod
+
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string')

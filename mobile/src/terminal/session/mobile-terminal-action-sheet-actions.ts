@@ -3,6 +3,7 @@ import type { ActionSheetAction } from '../../components/ActionSheetModal'
 import { translate } from '../../i18n/mobile-i18n'
 import type { MobileNativeChatTab } from '../../session/native-chat/mobile-native-chat-eligibility'
 import { getMobileNativeChatToggleActions } from '../../session/native-chat/mobile-native-chat-toggle-action'
+import { ccTabdiffTerminalActions } from '../../cc-tabdiff/sheet-actions' // cc-tabdiff mod
 
 type TerminalTab = MobileNativeChatTab & { id: string; terminal: string | null }
 
@@ -71,6 +72,7 @@ export function getMobileTerminalActionSheetActions<
         args.onClear(target)
       }
     },
+    ...ccTabdiffTerminalActions(sessionTab), // cc-tabdiff mod
     ...(args.workerActions ?? []),
     {
       id: 'close',

@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
 import { useOpenMobileAccounts } from '../accounts/use-open-mobile-accounts'
 import { ActionSheetModal } from '../components/ActionSheetModal'
+import { ccTabdiffHostActions } from '../cc-tabdiff/sheet-actions' // cc-tabdiff mod
 import { ConfirmModal } from '../components/ConfirmModal'
 import { getHostListActionSheetActions } from '../host-list-action-sheet-actions'
 import { triggerMediumImpact } from '../platform/haptics'
@@ -276,7 +277,7 @@ export function MobileHomeScreen() {
               data.router.push({ pathname: '/connection-log', params: { hostId } }),
             onEdit: openMobileHostEdit,
             onRemove: (host) => setConfirmRemove(host)
-          })}
+          }).concat(ccTabdiffHostActions(actionTarget))} // cc-tabdiff mod
           onClose={() => setActionTarget(null)}
         />
         <ConfirmModal
