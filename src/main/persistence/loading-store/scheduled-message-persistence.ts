@@ -48,7 +48,7 @@ export class ScheduledMessagePersistence {
 }
 
 export function installScheduledMessagePersistenceContext(
-  target: object,
+  target: ScheduledMessagePersistence,
   source: ScheduledMessagePersistence
 ): void {
   Object.defineProperty(target, scheduledMessagePersistenceContext, {
