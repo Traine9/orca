@@ -41,7 +41,7 @@ export class RateLimitWatcherPersistence {
 }
 
 export function installRateLimitWatcherPersistenceContext(
-  target: object,
+  target: RateLimitWatcherPersistence,
   source: RateLimitWatcherPersistence
 ): void {
   Object.defineProperty(target, rateLimitWatcherPersistenceContext, {
