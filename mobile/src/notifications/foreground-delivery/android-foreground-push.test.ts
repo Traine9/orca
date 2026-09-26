@@ -5,6 +5,7 @@ import type {
   NotificationTrigger
 } from 'expo-notifications'
 import { startAndroidForegroundPushPresentation } from './android-foreground-push'
+import { SEALED_VECTOR, sealedVectorHost } from '../payload-identity/push-sealed-payload.test-fixture'
 
 const mocks = vi.hoisted(() => ({
   platform: { OS: 'android' },
@@ -14,6 +15,9 @@ const mocks = vi.hoisted(() => ({
   schedule: vi.fn().mockResolvedValue('message-1')
 }))
 vi.mock('./push-receive', () => ({ canPresentForegroundPush: mocks.eligible }))
+vi.mock('../../host-catalog/host-store', () => ({
+  loadHosts: vi.fn(async () => [sealedVectorHost()])
+}))
 vi.mock('react-native', () => ({ Platform: mocks.platform }))
 vi.mock('expo-notifications', () => ({
   addNotificationReceivedListener: (listener: typeof mocks.receive) => {
@@ -107,6 +111,22 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.eligible.mockReset().mockResolvedValue(true)
   mocks.platform.OS = 'android'
+})
+
+it('presents the opened text of a sealed push, never the placeholder', async () => {
+  startAndroidForegroundPushPresentation()
+  mocks.receive(notification(pushTrigger(null), { ...SEALED_VECTOR.fcmData }))
+  await vi.waitFor(() => expect(mocks.schedule).toHaveBeenCalledOnce())
+  const scheduled = mocks.schedule.mock.calls[0]?.[0]
+  expect(scheduled.content).toMatchObject({
+    title: 'wt - Claude finished',
+    body: 'Готово ✓',
+    data: { notificationId: 'agent:wt:pane:1', worktreeId: 'repo::wt' }
+  })
+  expect(scheduled.content.data).not.toHaveProperty('paneKey')
+  expect(mocks.eligible).toHaveBeenCalledWith(
+    expect.objectContaining({ notificationId: 'agent:wt:pane:1', worktreeId: 'repo::wt' })
+  )
 })
 
 it('does not reschedule its own local notification or normal provider notifications', () => {

@@ -44,6 +44,7 @@ export type PushSendNotification = {
   title: string
   body: string
   worktreeId?: string
+  // Sealed pushes carry the envelope here (push-e2e-seal.ts); the real pane key rides inside it.
   paneKey?: string
   executionHost?: `runtime:${string}`
 }

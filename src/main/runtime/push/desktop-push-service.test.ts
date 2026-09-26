@@ -7,6 +7,7 @@ import { DeviceRegistry } from '../rpc/server/pairing/device-registry'
 import { DesktopPushService } from './desktop-push-service'
 import { PushRegisterThrottle } from './push-register-throttle'
 import { PushUnregisterOutbox } from './push-unregister-outbox'
+import { openSealedPushNotification } from './push-e2e-seal.test-fixture'
 import { createPushHostKeypair } from './push-host-challenge-fixtures'
 
 const REGISTER_INPUT = {
@@ -231,6 +232,31 @@ it('renews a seven-day mobile lease only on explicit registration', async () => 
     h.service.stop()
     clock.mockRestore()
   }
+})
+
+it('sends an explicit test only to the requesting registered phone and awaits gateway acceptance', async () => {
+  const { service, registry, deviceId, send } = createService()
+  await service.register({
+    ...REGISTER_INPUT,
+    deviceId,
+    filter: { onlyWhenDesktopAway: true, sound: false }
+  })
+  registry.addDevice('another phone', 'mobile')
+  send.mockResolvedValue({ ok: true, results: [{ registrationId: 'reg-1', status: 'queued' }] })
+  await expect(service.test(deviceId)).resolves.toEqual({ accepted: true })
+  expect(send).toHaveBeenCalledWith({
+    registrationIds: ['reg-1'],
+    notification: expect.objectContaining({
+      source: 'terminal-bell',
+      sound: false,
+      title: 'Orca',
+      paneKey: expect.stringMatching(/^e2e1:/)
+    })
+  })
+  const wire = send.mock.calls[0]?.[0].notification
+  expect(openSealedPushNotification(wire, registry.getDevice(deviceId)!.token!).title).toBe(
+    'Test notification'
+  )
 })
 
 it('does not claim success for missing registrations or failed gateway sends', async () => {

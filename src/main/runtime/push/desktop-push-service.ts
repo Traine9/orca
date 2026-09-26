@@ -10,6 +10,7 @@ import type { DeviceRegistry } from '../rpc/server/pairing/device-registry'
 import type { OrcaRuntimeService } from '../orca-runtime'
 import type { OrcaRuntimeRpcServer } from '../rpc/server/runtime-rpc'
 import { PushDispatcher } from './push-dispatcher'
+import { sealPushNotification } from './push-e2e-seal'
 import { PushGatewayClient } from './push-gateway-client'
 import { PushRegisterThrottle } from './push-register-throttle'
 import type { PushUnregisterOutbox } from './push-unregister-outbox'
@@ -113,20 +114,28 @@ export class DesktopPushService {
     if (this.stopped) {
       return { accepted: false, reason: 'unavailable' }
     }
+    // Fail closed like the dispatcher: without a pairing token the test cannot be sealed.
+    if (!device.token) {
+      return { accepted: false, reason: 'unavailable' }
+    }
     // Explicit tests target only the caller and bypass automatic activity filters.
     const result = await this.client.send({
       registrationIds: [registration.registrationId],
-      notification: {
-        source: 'terminal-bell',
-        agentState: null,
-        title: 'Test notification',
-        body: '',
-        notificationId: randomUUID(),
-        notificationEpoch: randomUUID(),
-        notificationSeq: 0,
-        expiresAt: Date.now() + 300_000,
-        sound: registration.filter.sound !== false
-      }
+      // Sealed like every real push, so the test proves the phone can open them.
+      notification: sealPushNotification(
+        {
+          source: 'terminal-bell',
+          agentState: null,
+          title: 'Test notification',
+          body: '',
+          notificationId: randomUUID(),
+          notificationEpoch: randomUUID(),
+          notificationSeq: 0,
+          expiresAt: Date.now() + 300_000,
+          sound: registration.filter.sound !== false
+        },
+        device.token
+      )
     })
     if (!result.ok) {
       return {
