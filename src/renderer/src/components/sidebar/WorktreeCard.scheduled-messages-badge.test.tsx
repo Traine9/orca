@@ -8,6 +8,8 @@ import type { Repo } from '../../../../shared/repo-types'
 import type { WorktreeCardProperty } from '../../../../shared/ui-chrome-types'
 import type { Worktree } from '../../../../shared/worktree/types'
 
+globalThis.IS_REACT_ACT_ENVIRONMENT = true
+
 const openModal = vi.fn()
 const setRenamingWorktreeId = vi.fn()
 const updateWorktreeMeta = vi.fn()
