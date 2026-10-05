@@ -1,8 +1,8 @@
 /**
  * Store's API is assembled twice, and the two halves must agree: the
- * `interface Store extends …` declaration merge in store.ts gives the methods their
- * types, while STORE_DOMAIN_OPERATION_CLASSES is what actually copies them onto
- * Store.prototype at import time. A domain added to the merge but forgotten in the
+ * `StoreDomainOperations` intersection that `interface Store` extends gives the methods
+ * their types, while STORE_DOMAIN_OPERATION_CLASSES is what actually copies them onto
+ * Store.prototype at import time. A domain added to the type but forgotten in the
  * class list typechecks, autocompletes, and then throws "is not a function" the
  * first time a user reaches the feature — the failure surfaces at runtime, in
  * production, with nothing in CI to catch it (domain unit tests drive the domain
@@ -13,13 +13,19 @@ import { describe, expect, it } from 'vitest'
 import { STORE_DOMAIN_OPERATION_CLASSES } from './store-domain-composition'
 
 function declarationMergedDomainNames(): string[] {
-  const source = readFileSync(new URL('./store.ts', import.meta.url), 'utf8')
-  const merge = /export interface Store\s+extends\s+([^{]+)\{\}/.exec(source)
+  const store = readFileSync(new URL('./store.ts', import.meta.url), 'utf8')
+  if (!/export interface Store extends StoreDomainOperations \{\}/.test(store)) {
+    throw new Error(
+      'store.ts no longer declares `export interface Store extends StoreDomainOperations`'
+    )
+  }
+  const source = readFileSync(new URL('./store-domain-composition.ts', import.meta.url), 'utf8')
+  const merge = /export type StoreDomainOperations =([^]*?)\n\n/.exec(source)
   if (!merge?.[1]) {
-    throw new Error('store.ts no longer declares `export interface Store extends …`')
+    throw new Error('store-domain-composition.ts no longer declares `StoreDomainOperations`')
   }
   return merge[1]
-    .split(',')
+    .split('&')
     .map((name) => name.trim())
     .filter((name) => name.length > 0)
 }
