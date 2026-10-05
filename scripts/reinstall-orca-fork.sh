@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reinstall a locally built Orca fork .deb and relaunch the GUI.
+# Reinstall a locally built Orca fork .deb and relaunch the GUI; safe to run from an Orca terminal.
 #
 # Usage: scripts/reinstall-orca-fork.sh [--restart-daemon] [path/to/orca-ide_<ver>_amd64.deb]
 #   default .deb: the newest dist/orca-ide_*_amd64.deb next to this script's repo.
@@ -8,19 +8,18 @@
 # from the GUI and survives an app relaunch, so it keeps running the OLD version's code
 # (its version is "appVersion" in daemon-v<N>.pid, and ORCA_APP_VERSION in a pane's env).
 # Only fixes in src/main/daemon need --restart-daemon.
-# WARNING: --restart-daemon kills every running terminal (shells, agents) in every workspace.
+# WARNING: --restart-daemon kills every running terminal (shells, agents) in every workspace,
+# including the one this script runs in; the relaunch then happens from a detached scope.
+#
+# Run from an Orca terminal, the pane lives in the daemon's systemd scope, which Orca stops
+# when the daemon dies; so the GUI is relaunched into its own app-orca-* scope with the pane's
+# ORCA_* variables stripped, and sudo asks for the password before the window closes.
 set -euo pipefail
 
-restart_daemon=0
-if [[ "${1:-}" == "--restart-daemon" ]]; then restart_daemon=1; shift; fi
-repo="$(cd "$(dirname "$0")/.." && pwd)"
-deb="${1:-$(ls -t "$repo"/dist/orca-ide_*_amd64.deb 2>/dev/null | head -1)}"
-[[ -f "$deb" ]] || { echo "no .deb found (pass a path)" >&2; exit 1; }
-echo "installing: $deb"
+log="${XDG_CACHE_HOME:-$HOME/.cache}/orca-reinstall.log"
+self="$(readlink -f "$0")"
 
-# GUI main process = /opt/Orca/orca-ide without --type= (Chromium helpers) or an
-# app.asar.unpacked entry script (PTY daemon, watcher/scanner child processes).
-gui_pids() {
+gui_pids() { # GUI main process: /opt/Orca/orca-ide without --type= or an app.asar.unpacked script
   local pid cmd
   for pid in $(pgrep -f '^/opt/Orca/orca-ide' || true); do
     cmd="$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)"
@@ -29,7 +28,7 @@ gui_pids() {
 }
 daemon_pids() { pgrep -f 'daemon-entry\.js --socket .*/daemon-v[0-9]+\.sock' || true; }
 
-wait_gone() { # wait_gone <label> <pid>...
+wait_gone() { # wait_gone <label> <pid>...; returns 1 after 30 s
   local label="$1"; shift
   local pid alive
   for _ in $(seq 60); do
@@ -38,31 +37,73 @@ wait_gone() { # wait_gone <label> <pid>...
     (( alive )) || return 0
     sleep 0.5
   done
-  echo "$label did not exit within 30s (a quit-confirmation dialog?); aborting" >&2
-  exit 1
+  echo "$label did not exit within 30s" >&2
+  return 1
 }
+
+launch() {
+  local strip=() v
+  for v in $(compgen -e | grep '^ORCA_' || true); do strip+=(-u "$v"); done
+  cd "$HOME"
+  if command -v systemd-run >/dev/null && systemd-run --user --scope --collect --quiet \
+      --unit "app-orca-probe-$$" -- true 2>/dev/null; then
+    setsid nohup env "${strip[@]}" systemd-run --user --scope --collect --quiet \
+      --unit "app-orca-$(date +%s%N)" -- /opt/Orca/orca-ide >/dev/null 2>&1 < /dev/null &
+  else
+    setsid nohup env "${strip[@]}" /opt/Orca/orca-ide >/dev/null 2>&1 < /dev/null &
+  fi
+  echo "relaunched Orca; installed: $(dpkg -s orca-ide | sed -n 's/^Version: //p')"
+}
+
+stop_daemon() {
+  local dpids
+  dpids="$(daemon_pids)"
+  [[ -n "$dpids" ]] || return 0
+  echo "stopping PTY daemon (pid $dpids) - this ends all running terminals"
+  kill -TERM $dpids
+  wait_gone "PTY daemon" $dpids || kill -KILL $dpids 2>/dev/null || true
+}
+
+# Internal: the detached second half of --restart-daemon when started from an Orca pane.
+if [[ "${1:-}" == "--finish-restart" ]]; then
+  stop_daemon
+  launch
+  exit 0
+fi
+
+restart_daemon=0
+if [[ "${1:-}" == "--restart-daemon" ]]; then restart_daemon=1; shift; fi
+repo="$(cd "$(dirname "$0")/.." && pwd)"
+deb="${1:-$(ls -t "$repo"/dist/orca-ide_*_amd64.deb 2>/dev/null | head -1)}"
+[[ -f "$deb" ]] || { echo "no .deb found (pass a path)" >&2; exit 1; }
+echo "installing: $deb"
+
+# Ask now: once the window is gone, an Orca pane can't show a password prompt.
+sudo -v
 
 pids="$(gui_pids)"
 if [[ -n "$pids" ]]; then
   echo "quitting Orca GUI (pid $pids)"
-  # SIGTERM runs Electron's normal quit path (before-quit/will-quit), like Ctrl+Q.
-  kill -TERM $pids
-  wait_gone "Orca GUI" $pids
+  kill -TERM $pids # Electron's normal quit path, like Ctrl+Q
+  wait_gone "Orca GUI" $pids || { echo "a quit-confirmation dialog? aborting" >&2; exit 1; }
 fi
 
-if (( restart_daemon )); then
-  dpids="$(daemon_pids)"
-  if [[ -n "$dpids" ]]; then
-    echo "stopping PTY daemon (pid $dpids) - this ends all running terminals"
-    kill -TERM $dpids
-    wait_gone "PTY daemon" $dpids
-  fi
+relaunched=0
+trap '(( relaunched )) || { echo "install failed; relaunching the old Orca" >&2; launch; }' EXIT
+
+sudo -n dpkg -i "$deb"
+
+if (( restart_daemon )) && [[ -n "${ORCA_PANE_KEY:-}${ORCA_TERMINAL_HANDLE:-}" ]]; then
+  echo "this terminal closes with the daemon; progress goes to $log"
+  setsid nohup systemd-run --user --scope --collect --quiet --unit "orca-reinstall-$(date +%s)" \
+    -- "$self" --finish-restart >>"$log" 2>&1 < /dev/null &
+  relaunched=1
+  exit 0
 fi
 
-sudo dpkg -i "$deb"
-
-setsid nohup /opt/Orca/orca-ide >/dev/null 2>&1 < /dev/null &
-echo "relaunched Orca; installed: $(dpkg -s orca-ide | sed -n 's/^Version: //p')"
+(( restart_daemon )) && stop_daemon
+launch
+relaunched=1
 if (( ! restart_daemon )); then
   grep -ho '"appVersion":"[^"]*"' ~/.config/orca/daemon/daemon-v*.pid 2>/dev/null \
     | sed 's/^/PTY daemon still runs: /' || true
