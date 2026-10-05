@@ -71,6 +71,7 @@ export function openSealedPushEnvelope(
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       return null
     }
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: a non-array object checked above; every field is read as unknown.
     const record = parsed as Record<string, unknown>
     return {
       t: readEnvelopeString(record.t),
@@ -86,20 +87,25 @@ export function openSealedPushEnvelope(
 }
 
 /**
- * Null when the data carries no sealed envelope. Otherwise the envelope is always
- * stripped, so ciphertext can never be mistaken for a paneKey by routing, and the
- * real title, body, worktree, notification id and epoch are restored when the key opens it.
+ * Null when the data carries no sealed envelope. An envelope the paired key cannot open
+ * is stripped, and the real title, body, worktree, notification id and epoch are restored
+ * when it opens. If the host store itself fails, the data is kept whole so a later read (a
+ * tap, a tray sweep) can still open it; readOrcaPushPayload never routes an e2e1 paneKey.
  */
 export async function openSealedPushData(data: unknown): Promise<OpenedPush | null> {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     return null
   }
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: a non-array object checked above; every field is read as unknown.
   const { paneKey, ...rest } = data as Record<string, unknown>
   if (!isSealedPushPaneKey(paneKey)) {
     return null
   }
   const fingerprint = typeof rest.hostFingerprint === 'string' ? rest.hostFingerprint : ''
-  const hosts = await loadHosts().catch(() => [])
+  const hosts = await loadHosts().catch(() => null)
+  if (!hosts) {
+    return { data: { paneKey, ...rest }, opened: false }
+  }
   const hostId = resolveHostIdForFingerprint(fingerprint, hosts)
   const host = hostId ? hosts.find((candidate) => candidate.id === hostId) : undefined
   const envelope = host ? openSealedPushEnvelope(paneKey, host.deviceToken) : null

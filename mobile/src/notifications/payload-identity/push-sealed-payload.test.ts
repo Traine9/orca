@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { SEALED_VECTOR, sealedVectorHost } from './push-sealed-payload.test-fixture'
 import { openSealedPushData, openSealedPushEnvelope } from './push-sealed-payload'
 
-const hosts = vi.hoisted(() => ({ value: [] as unknown[] }))
+const hosts = vi.hoisted((): { value: unknown[] } => ({ value: [] }))
 vi.mock('../transport/hosts/host-store', () => ({ loadHosts: vi.fn(async () => hosts.value) }))
 
 beforeEach(() => {
@@ -44,6 +44,14 @@ it('strips an envelope it cannot open instead of passing ciphertext on as a pane
   expect(opened?.opened).toBe(false)
   expect(opened?.data).not.toHaveProperty('paneKey')
   expect(opened?.data.notificationId).toBe(SEALED_VECTOR.fcmData.notificationId)
+})
+
+it('keeps the envelope for a later read when the host store fails', async () => {
+  const { loadHosts } = await import('../transport/hosts/host-store')
+  vi.mocked(loadHosts).mockRejectedValueOnce(new Error('keystore locked'))
+  const opened = await openSealedPushData(SEALED_VECTOR.fcmData)
+  expect(opened).toEqual({ data: SEALED_VECTOR.fcmData, opened: false })
+  expect((await openSealedPushData(opened?.data))?.opened).toBe(true)
 })
 
 it('ignores data that carries no envelope', async () => {
