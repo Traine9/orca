@@ -1,6 +1,7 @@
 // @ts-nocheck -- mechanically split from OrcaRuntimeService; behavior is covered by AST equivalence and characterization tests.
 import { OrcaRuntimeWithStopRequestedPtyIds } from './orca-runtime-stop-requested-pty-ids'
 import { RuntimeSubscriptionRegistry } from './runtime-subscription-registry'
+import { notifyRuntimeListeners } from './runtime-async-boundaries'
 import { RuntimeMobileNotificationController } from './runtime-mobile-notification-controller'
 import type {
   ProviderBufferAcquisition,
@@ -12,6 +13,7 @@ import type {
 import type { TerminalKittyKeyboardModeTracker } from '../../shared/terminal-kitty-keyboard-mode-tracker'
 import type { PtyProviderBufferSnapshot } from '../providers/types'
 import type { WaitBlockedCheckState } from './wait-blocked-check-state'
+import type { AgentIdleEdgeEvent } from './runtime-agent-idle-edge-contracts'
 import type { createAgentStatusOscProcessor } from '../../shared/agent-status-osc'
 import { RuntimeTerminalViewSubscribers } from './runtime-terminal-view-subscribers'
 import { parseAppSshPtyId } from '../../shared/ssh-pty-id'
@@ -30,6 +32,24 @@ export class OrcaRuntimeWithFitOverrideListeners extends OrcaRuntimeWithStopRequ
       }) => void
     >
   >()
+
+  protected agentIdleEdgeListeners = new Set<(event: AgentIdleEdgeEvent) => void>()
+
+  /** Rides the same transition as orchestration push delivery, not a second detector. */
+  subscribeAgentIdleEdge(listener: (event: AgentIdleEdgeEvent) => void): () => void {
+    this.agentIdleEdgeListeners.add(listener)
+    return () => {
+      this.agentIdleEdgeListeners.delete(listener)
+    }
+  }
+
+  protected emitAgentIdleEdge(event: AgentIdleEdgeEvent): void {
+    notifyRuntimeListeners(
+      this.agentIdleEdgeListeners,
+      (listener) => listener(event),
+      'agent-idle-edge'
+    )
+  }
 
   protected readonly subscriptions = new RuntimeSubscriptionRegistry()
 
