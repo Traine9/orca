@@ -312,6 +312,9 @@ export const AUTOMATION_CREATE_IDEMPOTENCY_RUNTIME_CAPABILITY =
   'automation.create-idempotency.v1' as const
 // Hosts without this capability have no notifications.registerPush RPC.
 export const NOTIFICATIONS_REMOTE_PUSH_RUNTIME_CAPABILITY = 'notifications.remote-push.v1' as const
+// Hosts with this accept `sealedContent` in notifications.registerPush and then end-to-end encrypt that phone's pushes.
+export const NOTIFICATIONS_REMOTE_PUSH_SEALED_RUNTIME_CAPABILITY =
+  'notifications.remote-push.sealed.v1' as const
 
 // Generic native clients include the CLI and must not claim Electron-only page
 // placement support.
@@ -432,6 +435,7 @@ export const RUNTIME_CAPABILITIES = [
   AUTOMATION_OWNER_FENCING_RUNTIME_CAPABILITY,
   AUTOMATION_CREATE_IDEMPOTENCY_RUNTIME_CAPABILITY,
   NOTIFICATIONS_REMOTE_PUSH_RUNTIME_CAPABILITY,
+  NOTIFICATIONS_REMOTE_PUSH_SEALED_RUNTIME_CAPABILITY,
   ...AGENT_LAUNCH_RUNTIME_CAPABILITIES
 ] as const
 
