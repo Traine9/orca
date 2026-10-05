@@ -1,9 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import type { PushSendNotification } from './push-gateway-client'
-import { opaquePushNotificationId, derivePushSealKey, sealPushNotification } from './push-e2e-seal'
+import {
+  derivePushSealKey,
+  opaquePushNotificationEpoch,
+  opaquePushNotificationId,
+  sealPushNotification
+} from './push-e2e-seal'
 import { openSealedPushNotification } from './push-e2e-seal.test-fixture'
 
 const TOKEN = 'a'.repeat(48)
+
+// Mirrors PushNotificationSchema in cloud/packages/push-contract/src/send-messages.ts.
+function expectWithinGatewayLimits(wire: PushSendNotification): void {
+  expect(wire.paneKey!.length).toBeLessThanOrEqual(2048)
+  expect(wire.notificationEpoch.length).toBeLessThanOrEqual(128)
+  expect(wire.notificationId ?? 'x').toMatch(/^[\x20-\x7e]{1,2048}$/)
+  expect(new TextEncoder().encode(JSON.stringify(wire)).byteLength).toBeLessThanOrEqual(3000)
+}
 
 function alert(overrides: Partial<PushSendNotification> = {}): PushSendNotification {
   return {
@@ -26,11 +39,13 @@ describe('sealPushNotification', () => {
     expect(wire).toMatchObject({ title: 'Agent needs input', body: '' })
     expect(wire.worktreeId).toBeUndefined()
     expect(JSON.stringify(wire)).not.toMatch(/secret-project|sk-live|Bearer/)
+    expectWithinGatewayLimits(wire)
     expect(openSealedPushNotification(wire, TOKEN)).toMatchObject({
       title: 'secret-project - Claude needs input',
       body: 'Using Bash: curl -H "Authorization: Bearer sk-live-123"',
       worktreeId: 'repo::/home/me/secret-project',
-      notificationId: alert().notificationId
+      notificationId: alert().notificationId,
+      notificationEpoch: 'epoch'
     })
   })
 
@@ -46,15 +61,23 @@ describe('sealPushNotification', () => {
     expect(() => openSealedPushNotification(wire, 'b'.repeat(48))).toThrow()
   })
 
-  it('uses a fresh nonce per send but a stable opaque id for dismissal matching', () => {
+  it('uses a fresh nonce per send but stable opaque ids for dismissal matching', () => {
+    const key = derivePushSealKey(TOKEN)
     const first = sealPushNotification(alert(), TOKEN)
-    const second = sealPushNotification(alert({ kind: 'dismiss' }), TOKEN)
+    const second = sealPushNotification(alert({ kind: 'dismiss', notificationSeq: 4 }), TOKEN)
     expect(first.paneKey).not.toBe(second.paneKey)
     expect(second.notificationId).toBe(first.notificationId)
-    expect(first.notificationId).toBe(
-      opaquePushNotificationId(derivePushSealKey(TOKEN), alert().notificationId!)
-    )
-    expect(first.notificationId).toMatch(/^[\x20-\x7e]{1,2048}$/)
+    expect(second.notificationEpoch).toBe(first.notificationEpoch)
+    expect(first.notificationId).toBe(opaquePushNotificationId(key, alert().notificationId!))
+    expect(first.notificationEpoch).toBe(opaquePushNotificationEpoch(key, 'epoch'))
+    expectWithinGatewayLimits(second)
+  })
+
+  it('gives each phone its own event identity so the gateway accepts every copy', () => {
+    const mine = sealPushNotification(alert(), TOKEN)
+    const theirs = sealPushNotification(alert(), 'b'.repeat(48))
+    expect(mine.notificationEpoch).not.toBe(theirs.notificationEpoch)
+    expect(mine.notificationId).not.toBe(theirs.notificationId)
   })
 
   it('stays inside the gateway budgets with maximal multibyte text', () => {
@@ -63,12 +86,35 @@ describe('sealPushNotification', () => {
         title: 'Ж'.repeat(80),
         body: '🙂'.repeat(90),
         worktreeId: `repo::${'п'.repeat(600)}`,
-        notificationId: `agent:${'%D0%BF'.repeat(300)}`
+        notificationId: `agent:${'%D0%BF'.repeat(300)}`,
+        notificationEpoch: 'e'.repeat(128)
       }),
       TOKEN
     )
-    expect(wire.paneKey!.length).toBeLessThanOrEqual(2048)
-    expect(new TextEncoder().encode(JSON.stringify(wire)).byteLength).toBeLessThanOrEqual(3000)
+    expectWithinGatewayLimits(wire)
     expect(openSealedPushNotification(wire, TOKEN).title).toBe('Ж'.repeat(80))
+  })
+
+  it('ends the body shrink when even an empty body does not fit, then drops the worktree', () => {
+    const wire = sealPushNotification(
+      alert({ body: '…'.repeat(180), worktreeId: `repo::${'п'.repeat(1200)}` }),
+      TOKEN
+    )
+    expectWithinGatewayLimits(wire)
+    const opened = openSealedPushNotification(wire, TOKEN)
+    expect(opened.body).toBe('')
+    expect(opened.worktreeId).toBeUndefined()
+    expect(opened.notificationEpoch).toBe('epoch')
+  })
+
+  it('shortens a body by whole code points and marks the cut', () => {
+    const wire = sealPushNotification(
+      alert({ body: '🙂'.repeat(180), worktreeId: `repo::${'п'.repeat(500)}` }),
+      TOKEN
+    )
+    expectWithinGatewayLimits(wire)
+    const { body } = openSealedPushNotification(wire, TOKEN)
+    expect(body).toMatch(/^(🙂)+…$/u)
+    expect(Array.from(body).length).toBeLessThan(180)
   })
 })

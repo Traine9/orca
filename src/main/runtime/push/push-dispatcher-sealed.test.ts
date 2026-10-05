@@ -46,7 +46,7 @@ describe('PushDispatcher sealed content', () => {
     expect(harness.wireSends).toHaveLength(4)
     for (const send of harness.wireSends) {
       const wire = JSON.stringify(send)
-      expect(wire).not.toMatch(/feat\/x|All done\.|repo::wt1|agent:one|tab-1:pane-1/)
+      expect(wire).not.toMatch(/feat\/x|All done\.|repo::wt1|agent:one|tab-1:pane-1|epoch-1/)
       expect(send.notification.worktreeId).toBeUndefined()
       expect(send.notification.paneKey).toMatch(/^e2e1:/)
     }
@@ -56,10 +56,29 @@ describe('PushDispatcher sealed content', () => {
     expect(harness.wireSends[0]?.notification.notificationId).not.toBe(
       harness.wireSends[1]?.notification.notificationId
     )
-    // A dismissal must name the alert it retracts by the same opaque id.
-    expect(harness.wireSends[2]?.notification.notificationId).toBe(
-      harness.wireSends[0]?.notification.notificationId
+    // The gateway refuses a differing copy of an event it already holds, so each phone's event differs.
+    expect(harness.wireSends[0]?.notification.notificationEpoch).not.toBe(
+      harness.wireSends[1]?.notification.notificationEpoch
     )
+    // A dismissal must name the alert it retracts by that phone's own opaque id and epoch.
+    for (const [alert, dismiss] of [
+      [harness.wireSends[0], harness.wireSends[2]],
+      [harness.wireSends[1], harness.wireSends[3]]
+    ]) {
+      expect(dismiss?.registrationIds).toEqual(alert?.registrationIds)
+      expect(dismiss?.notification).toMatchObject({
+        kind: 'dismiss',
+        notificationId: alert?.notification.notificationId,
+        notificationEpoch: alert?.notification.notificationEpoch
+      })
+    }
+    // Each phone opens the real epoch back out of its own envelope.
+    expect(harness.sends.map((send) => send.notification.notificationEpoch)).toEqual([
+      'epoch-1',
+      'epoch-1',
+      'epoch-1',
+      'epoch-1'
+    ])
   })
 
   it('skips a device without a pairing token instead of sending in the clear', async () => {

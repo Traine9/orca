@@ -4,11 +4,20 @@ import { sha256 } from '@noble/hashes/sha256'
 import { loadHosts } from '../../host-catalog/host-store'
 import { resolveHostIdForFingerprint } from './push-host-fingerprint'
 
-// Why: the desktop seals a push's text, worktree, pane and notification id per device so
-// the gateway and FCM only see a generic title. Wire format and rationale live in
+// Why: the desktop seals a push's text, worktree, pane, notification id and epoch per
+// device so the gateway and FCM only see a generic title. Wire format and rationale live in
 // src/main/runtime/push/push-e2e-seal.ts; this is the opening half.
 export const SEALED_PUSH_PREFIX = 'e2e1:'
 const KEY_LABEL = 'orca-push-e2e-v1'
+
+export type SealedPushEnvelope = {
+  t?: string
+  b?: string
+  w?: string
+  p?: string
+  n?: string
+  e?: string
+}
 
 export type OpenedPush = {
   /** The push data with the real ids restored and the envelope removed. */
@@ -42,7 +51,7 @@ function readEnvelopeString(value: unknown): string | undefined {
 export function openSealedPushEnvelope(
   sealed: string,
   deviceToken: string
-): { t?: string; b?: string; w?: string; p?: string; n?: string } | null {
+): SealedPushEnvelope | null {
   const bundle = base64ToBytes(sealed.slice(SEALED_PUSH_PREFIX.length))
   if (!bundle || bundle.length <= nacl.secretbox.nonceLength) {
     return null
@@ -68,7 +77,8 @@ export function openSealedPushEnvelope(
       b: typeof record.b === 'string' ? record.b : undefined,
       w: readEnvelopeString(record.w),
       p: readEnvelopeString(record.p),
-      n: readEnvelopeString(record.n)
+      n: readEnvelopeString(record.n),
+      e: readEnvelopeString(record.e)
     }
   } catch {
     return null
@@ -78,7 +88,7 @@ export function openSealedPushEnvelope(
 /**
  * Null when the data carries no sealed envelope. Otherwise the envelope is always
  * stripped, so ciphertext can never be mistaken for a paneKey by routing, and the
- * real title, body, worktree and notification id are restored when the key opens it.
+ * real title, body, worktree, notification id and epoch are restored when the key opens it.
  */
 export async function openSealedPushData(data: unknown): Promise<OpenedPush | null> {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -102,6 +112,7 @@ export async function openSealedPushData(data: unknown): Promise<OpenedPush | nu
     data: {
       ...rest,
       ...(envelope.n ? { notificationId: envelope.n } : {}),
+      ...(envelope.e ? { notificationEpoch: envelope.e } : {}),
       ...(envelope.w ? { worktreeId: envelope.w } : {}),
       ...(envelope.p ? { paneKey: envelope.p } : {}),
       ...(title !== undefined ? { title } : {}),

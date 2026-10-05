@@ -14,7 +14,8 @@ it('opens an envelope sealed by the desktop', () => {
     t: 'wt - Claude finished',
     b: 'Готово ✓',
     w: 'repo::wt',
-    n: 'agent:wt:pane:1'
+    n: 'agent:wt:pane:1',
+    e: 'epoch-1'
   })
   expect(openSealedPushEnvelope(SEALED_VECTOR.paneKey, 'e'.repeat(48))).toBeNull()
   expect(openSealedPushEnvelope('e2e1:not base64!', SEALED_VECTOR.deviceToken)).toBeNull()
@@ -28,6 +29,7 @@ it('restores the real fields for the host the fingerprint names', async () => {
     body: 'Готово ✓',
     data: {
       notificationId: 'agent:wt:pane:1',
+      notificationEpoch: 'epoch-1',
       worktreeId: 'repo::wt',
       title: 'wt - Claude finished',
       message: 'Готово ✓'

@@ -1,6 +1,6 @@
 import nacl from 'tweetnacl'
 import type { PushSendNotification } from './push-gateway-client'
-import { SEALED_PUSH_PREFIX, derivePushSealKey } from './push-e2e-seal'
+import { SEALED_PUSH_PREFIX, derivePushSealKey, type SealedPushEnvelope } from './push-e2e-seal'
 
 /** The phone's half of push-e2e-seal.ts, so desktop suites can assert on what a phone reads. */
 export function openSealedPushNotification(
@@ -20,15 +20,11 @@ export function openSealedPushNotification(
   if (!plaintext) {
     throw new Error('sealed push did not open with this device token')
   }
-  const envelope = JSON.parse(Buffer.from(plaintext).toString('utf8')) as {
-    t?: string
-    b?: string
-    w?: string
-    p?: string
-    n?: string
-  }
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: test-only reader of an envelope the suite itself sealed.
+  const envelope = JSON.parse(Buffer.from(plaintext).toString('utf8')) as SealedPushEnvelope
   return {
     ...rest,
+    notificationEpoch: envelope.e,
     ...(envelope.t !== undefined ? { title: envelope.t } : {}),
     ...(envelope.b !== undefined ? { body: envelope.b } : {}),
     ...(envelope.w ? { worktreeId: envelope.w } : {}),
