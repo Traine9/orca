@@ -131,7 +131,6 @@ of them.
 | same | `ccTabdiff.linuxResource, // cc-tabdiff mod`, in `linux.extraResources` | ship the binary |
 | `config/scripts/desktop-distribution/linux/build-linux-local.mjs` | `import { buildCcTabdiffServer } … // cc-tabdiff mod` | import |
 | same | `buildCcTabdiffServer({ arch, cwd, env, execFile, platform }) // cc-tabdiff mod`, before the electron-builder call | prebuild |
-| `config/scripts/native-build/linux/verify-linux-glibc-floor.cjs` | `const isStatic = neededLibraries.size === 0 && versionNeeds.length === 0 // cc-tabdiff mod` + `!isStatic &&` in the `providerViolations` condition | the packaging gate ran `objdump -T` on every ELF, which fails on a static binary such as the Go server (worth upstreaming) |
 | `src/renderer/src/i18n/locales/en.json` | the top-level `"ccTabdiff": {` block, plus `components.linkActions.diffViewer` and `settings.browser.diffViewer.*` | strings (JSON has no comments) |
 
 Some of the mod's own files sit outside the `cc-tabdiff` directories, because they came before this
