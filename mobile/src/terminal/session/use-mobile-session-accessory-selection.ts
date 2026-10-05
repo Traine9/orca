@@ -25,7 +25,10 @@ import {
 } from '../terminal-webview-contract'
 import type { createTerminalLiveAccessoryInput } from '../terminal-live-accessory-input'
 import { clearTerminalLiveInputFocusTimer } from '../terminal-live-input'
-import { stripTerminalSelectionGutter } from '../../../../src/shared/terminal/output/terminal-selection-gutter'
+import {
+  cleanTerminalSelection,
+  type TerminalSelectionGeometry
+} from '../../../../src/shared/terminal/output/terminal-selection-gutter'
 import { useTerminalCopyTrimsGutter } from '../terminal-copy-gutter-preference'
 import type { MobileSessionTerminalInputModel } from './use-mobile-session-terminal-input'
 
@@ -163,7 +166,7 @@ export function useMobileSessionAccessorySelection(scope: MobileSessionTerminalI
   }, [])
 
   const handleSelectionCopy = useCallback(
-    async (handle: string, text: string) => {
+    async (handle: string, text: string, geometry?: TerminalSelectionGeometry) => {
       if (handle !== activeHandleRef.current) {
         return
       }
@@ -173,7 +176,7 @@ export function useMobileSessionAccessorySelection(scope: MobileSessionTerminalI
       }
       try {
         await clipboard.writeText(
-          trimsGutterRef.current ? stripTerminalSelectionGutter(text) : text
+          trimsGutterRef.current ? cleanTerminalSelection(text, geometry) : text
         )
         triggerSuccess()
         // Why: Android 13+ shows its own system copy toast; iOS shows none, so only iOS needs our in-app toast.

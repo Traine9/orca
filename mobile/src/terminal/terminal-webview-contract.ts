@@ -1,5 +1,6 @@
 import type { ParsedFileLinkLocation } from '../../../src/shared/file-links/file-link-location'
 import type { RuntimeMobileTerminalTheme } from '../../../src/shared/runtime-mobile-session-tab-contracts'
+import type { TerminalSelectionGeometry } from '../../../src/shared/terminal/output/terminal-selection-gutter'
 import type { TerminalOscLinkRange } from '../../../src/shared/terminal/links/terminal-osc-link-ranges'
 import type { StyleProp, ViewStyle } from 'react-native'
 import type { TerminalFitDimensions } from './terminal-grid-fit'
@@ -67,7 +68,7 @@ export type TerminalPointerInput = {
 
 export type TerminalSelectionEvents = {
   onSelectionMode?: (active: boolean) => void
-  onSelectionCopy?: (text: string) => void
+  onSelectionCopy?: (text: string, geometry?: TerminalSelectionGeometry) => void
   onSelectionEvicted?: () => void
   onClipboardWrite?: (text: string) => void
   onModesChanged?: (modes: TerminalModes) => void
