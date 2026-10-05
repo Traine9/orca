@@ -131,6 +131,7 @@ of them.
 | same | `ccTabdiff.linuxResource, // cc-tabdiff mod`, in `linux.extraResources` | ship the binary |
 | `config/scripts/desktop-distribution/linux/build-linux-local.mjs` | `import { buildCcTabdiffServer } … // cc-tabdiff mod` | import |
 | same | `buildCcTabdiffServer({ arch, cwd, env, execFile, platform }) // cc-tabdiff mod`, before the electron-builder call | prebuild |
+| `config/scripts/build/mobile-web-app/verify-mobile-web-app-bundle.mjs` | `export const MOBILE_WEB_APP_BUNDLE_CC_TABDIFF_SCRIPTS = 4 // cc-tabdiff mod`, added into `mobileWebAppBundleMaxChunks` | room for the mobile diff viewer's 4 extra web chunks |
 | `src/renderer/src/i18n/locales/en.json` | the top-level `"ccTabdiff": {` block, plus `components.linkActions.diffViewer` and `settings.browser.diffViewer.*` | strings (JSON has no comments) |
 
 Some of the mod's own files sit outside the `cc-tabdiff` directories, because they came before this

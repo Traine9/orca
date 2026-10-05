@@ -85,6 +85,9 @@ export const MOBILE_WEB_APP_BUNDLE_ROUTE_SCRIPT_SPREAD = sweptScripts
 // Allow four chunks of measured refactor-only drift per head, never cumulative; larger change requires fresh sweep rather than inflated margin.
 export const MOBILE_WEB_APP_BUNDLE_SCRIPT_MARGIN = 4
 
+// cc-tabdiff mod: the mobile diff viewer's shared modules split into four more scripts; the sweep stays upstream's.
+export const MOBILE_WEB_APP_BUNDLE_CC_TABDIFF_SCRIPTS = 4 // cc-tabdiff mod
+
 // Ceiling is swept maximum+margin, flat below sweep length, growing by worst measured route beyond it; test both excess and unused headroom.
 // Route count remains sole term: deferred engine must be one artifact, not admit mermaid’s 103 diagram chunks through a new allowance. Entry closure budget below catches collapsed splitting.
 export function mobileWebAppBundleMaxChunks(routeCount) {
@@ -92,6 +95,7 @@ export function mobileWebAppBundleMaxChunks(routeCount) {
   return (
     sweptScripts.at(-1) +
     MOBILE_WEB_APP_BUNDLE_SCRIPT_MARGIN +
+    MOBILE_WEB_APP_BUNDLE_CC_TABDIFF_SCRIPTS + // cc-tabdiff mod
     Math.max(...MOBILE_WEB_APP_BUNDLE_ROUTE_SCRIPT_SPREAD) * beyondTheSweep
   )
 }

@@ -62,6 +62,10 @@ need $f "      ccTabdiff.linuxResource, $M"
 f=config/scripts/desktop-distribution/linux/build-linux-local.mjs
 need $f "import { buildCcTabdiffServer } from '../../../../scripts/cc-tabdiff/prebuild.mjs' $M"
 need $f "  buildCcTabdiffServer({ arch, cwd, env, execFile, platform }) $M"
+# The mobile diff viewer adds web chunks beyond upstream's swept Phase C budget.
+f=config/scripts/build/mobile-web-app/verify-mobile-web-app-bundle.mjs
+need $f "export const MOBILE_WEB_APP_BUNDLE_CC_TABDIFF_SCRIPTS = 4 $M"
+need $f "    MOBILE_WEB_APP_BUNDLE_CC_TABDIFF_SCRIPTS + $M"
 # Upstream v1.4.220 skips static ELFs in the glibc floor gate itself, so that touch point is gone.
 f=config/scripts/native-build/linux/verify-linux-glibc-floor.cjs
 need $f "      !isStatic &&"
@@ -98,7 +102,7 @@ need config/scripts/desktop-distribution/linux/build-linux-local.mjs "export fun
 need package.json "node config/scripts/desktop-distribution/linux/build-linux-local.mjs"
 
 # --- Stray markers: a marker in a file not listed above means this list is out of date ---
-known='^(src/main/startup/main-process-ready-runtime.ts|src/shared/global-settings-types.ts|src/shared/default-global-settings.ts|src/renderer/src/store/index.ts|src/renderer/src/components/tab-bar/SortableTabContextMenu.tsx|src/renderer/src/components/settings/browser/BrowserPane.tsx|src/renderer/src/components/link-actions/(LinkActionPopover.tsx|link-action-request.ts)|src/renderer/src/components/native-chat/links/actions/native-chat-web-link-actions.ts|src/renderer/src/components/terminal-pane/links/(http/terminal-url-link-hit-testing|terminal-link-action-request).ts|config/electron-builder.config.cjs|config/scripts/desktop-distribution/linux/build-linux-local.mjs)$'
+known='^(src/main/startup/main-process-ready-runtime.ts|src/shared/global-settings-types.ts|src/shared/default-global-settings.ts|src/renderer/src/store/index.ts|src/renderer/src/components/tab-bar/SortableTabContextMenu.tsx|src/renderer/src/components/settings/browser/BrowserPane.tsx|src/renderer/src/components/link-actions/(LinkActionPopover.tsx|link-action-request.ts)|src/renderer/src/components/native-chat/links/actions/native-chat-web-link-actions.ts|src/renderer/src/components/terminal-pane/links/(http/terminal-url-link-hit-testing|terminal-link-action-request).ts|config/electron-builder.config.cjs|config/scripts/desktop-distribution/linux/build-linux-local.mjs|config/scripts/build/mobile-web-app/verify-mobile-web-app-bundle.mjs)$'
 # The mobile mod (mobile/, notes/cc-tabdiff-mod-mobile.md) keeps its own list.
 while IFS= read -r file; do
   if ! [[ "$file" =~ $known ]]; then
