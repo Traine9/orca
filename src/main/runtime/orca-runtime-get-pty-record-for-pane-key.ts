@@ -384,15 +384,6 @@ export class OrcaRuntimeWithGetPtyRecordForPaneKey extends OrcaRuntimeWithPruneM
    *  gate liveness. */
   protected deliverPendingMessagesForLeaf(leaf: RuntimeLeafRecord): void {
     this.orchestrationMailboxNotifications.deliverForLeaf(leaf)
-    const ptyId = leaf.ptyId
-    if (ptyId === null) {
-      return
-    }
-    this.emitAgentIdleEdge({
-      ptyId,
-      worktreeId: leaf.worktreeId,
-      leafId: leaf.leafId,
-      tabId: leaf.tabId
-    })
+    this.emitAgentIdleEdge(leaf)
   }
 }
