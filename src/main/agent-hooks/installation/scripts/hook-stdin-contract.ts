@@ -81,15 +81,19 @@ export const POSIX_HOOK_STDIN_EXEC: PosixHookStdinReader = {
 }
 
 // POSIX hooks must drain stdin before any no-op exit to prevent agent-side broken pipes.
+// `afterCapture` runs right after the read, before the empty-payload exit, so it
+// sees every payload (including an empty one) and can answer on stdout first.
 export function buildPosixHookPayloadCapture(
   emptyPayloadPolicy: PosixHookEmptyPayloadPolicy = 'exit',
-  stdinReader: PosixHookStdinReader = { reader: POSIX_HOOK_STDIN_READER, prelude: [] }
+  stdinReader: PosixHookStdinReader = { reader: POSIX_HOOK_STDIN_READER, prelude: [] },
+  afterCapture: readonly string[] = []
 ): string[] {
   const emptyPayloadLines =
     emptyPayloadPolicy === 'empty-object' ? ["  payload='{}'"] : ['  exit 0']
   return [
     ...stdinReader.prelude,
     `payload=$(${stdinReader.reader})`,
+    ...afterCapture,
     'if [ -z "$payload" ]; then',
     ...emptyPayloadLines,
     'fi'

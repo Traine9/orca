@@ -33,6 +33,28 @@ import {
   buildPosixClaudeBackgroundJobGuardLines
 } from '../agent-hooks/installation/scripts/claude-background-job-guard'
 
+// Why: Claude Code stores any hook stdout as a transcript record that embeds the whole
+// registered command (~3 KB), so a `{}` on every event roughly doubles the transcript.
+// Events whose output no consumer reads as a decision stay silent; every other event,
+// including an unknown or empty payload, still answers `{}`, because Claude-compatible
+// permission gates fail closed on empty stdout (#14818). Claude Code sends compact JSON,
+// and a quote inside a JSON string is escaped, so only the top-level key can match.
+export const CLAUDE_SILENT_HOOK_EVENTS: readonly string[] = [
+  'PostToolUse',
+  'PostToolUseFailure',
+  'SubagentStart',
+  'SessionStart',
+  'SessionEnd',
+  'StopFailure',
+  'PostCompact'
+]
+
+const CLAUDE_SILENT_HOOK_PATTERNS = CLAUDE_SILENT_HOOK_EVENTS.map(
+  (event) => `*'"hook_event_name":"${event}"'*`
+).join('|')
+
+const POSIX_CLAUDE_NEUTRAL_RESPONSE = `case "$payload" in ${CLAUDE_SILENT_HOOK_PATTERNS}) ;; *) printf "{}\\n" ;; esac`
+
 export function getManagedScript(
   target: 'local' | 'posix' = 'local',
   options: {
@@ -76,12 +98,17 @@ export function getManagedScript(
   const decides = options.decidesPreToolUse === true
   return [
     '#!/bin/sh',
-    // Permission hooks fail closed on empty stdout, including skip paths.
-    ...(decides ? buildPosixClaudeDecisionPreludeLines() : ['printf "{}\\n"']),
+    // Permission hooks fail closed on empty stdout, including skip paths: the decision prelude
+    // answers at exit, the print-then-post path right after the capture.
+    ...(decides ? buildPosixClaudeDecisionPreludeLines() : []),
     // CLAUDE_CODE_SUBPROCESS_ENV_SCRUB drops ORCA_PANE_KEY; restore it before any guard or spool reads it.
     ...buildPosixScrubSafeEnvRestoreLines(),
-    ...buildPosixHookPayloadCapture('exit', POSIX_HOOK_STDIN_EXEC),
-    ...(decides ? buildPosixClaudeDecisionModeLines() : []),
+    ...buildPosixHookPayloadCapture(
+      'exit',
+      POSIX_HOOK_STDIN_EXEC,
+      decides ? [] : [POSIX_CLAUDE_NEUTRAL_RESPONSE]
+    ),
+    ...(decides ? buildPosixClaudeDecisionModeLines(CLAUDE_SILENT_HOOK_PATTERNS) : []),
     ...(options.skipWhenGrokImportsClaude ? buildPosixGrokReplayGuardLines() : []),
     ...(options.skipWhenCursorImportsClaude ? buildPosixCursorReplayGuardLines() : []),
     ...buildPosixHookSpoolLines(source),
