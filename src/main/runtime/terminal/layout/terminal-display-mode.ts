@@ -1,4 +1,5 @@
 import { OrcaRuntimeWithHandleMobileUnsubscribe } from './mobile-terminal-unsubscribe'
+import { isDesktopPaneFitGrid } from '../../../../shared/terminal/viewport/terminal-viewport'
 
 export abstract class OrcaRuntimeWithApplyMobileDisplayMode extends OrcaRuntimeWithHandleMobileUnsubscribe {
   // Apply the most recent actor's viewport and earliest valid restore baseline; return whether no fit override remains, including failed-restore rollback (#7588).
@@ -88,7 +89,8 @@ export abstract class OrcaRuntimeWithApplyMobileDisplayMode extends OrcaRuntimeW
 
   // Fresh pane measurements update restore baselines without resizing, bypassing cascade suppression and override-echo filtering (docs/mobile-fit-hold.md).
   recordRendererGeometry(ptyId: string, cols: number, rows: number): void {
-    if (cols <= 0 || rows <= 0) {
+    // Why: this is the Take Back target; a hidden pane's 2x1 must not replace a real measurement.
+    if (!isDesktopPaneFitGrid(cols, rows)) {
       return
     }
     // Trusted pane measurements must also update deferred host reclaim targets after a viewer leaves during phone-fit.

@@ -3,6 +3,7 @@ import type { ManagedPaneInternal } from '@/lib/pane-manager/pane-manager-types'
 import { safeFit } from '@/lib/pane-manager/terminal-fit/pane-fit'
 import { requestStablePaneFit } from '@/lib/pane-manager/terminal-fit/pane-fit-resize-observer'
 import { getFitOverrideForPty } from '@/lib/pane-manager/terminal-fit/mobile-fit-overrides'
+import { canMeasurePaneForFit } from '@/lib/pane-manager/terminal-fit/pane-fit-measurability'
 import { isPtyLocked } from '@/lib/pane-manager/mobile-driver-state'
 import { reconcilePtySizeAcrossFrames } from '../../viewport/pty-size-reconcile'
 import { shouldClaimRemoteDesktopViewport } from '../../viewport/remote-desktop-viewport-claim'
@@ -51,6 +52,10 @@ export function installPtyResizeGeometry(session: ConnectPanePtySession): void {
       requestStablePaneFit(session.pane as ManagedPaneInternal, () =>
         session.ptySizeReassertion.request({ fit: false })
       )
+      return
+    }
+    // Why: a hidden pane proposes FitAddon's 2x1 floor; reporting it makes Take Back resize the PTY to 2x1.
+    if (!canMeasurePaneForFit(session.pane)) {
       return
     }
     let proposed: { cols: number; rows: number } | undefined

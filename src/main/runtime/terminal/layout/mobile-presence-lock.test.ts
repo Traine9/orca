@@ -240,6 +240,18 @@ describe('mobile presence lock — multi-mobile semantics', () => {
     expect(await runtime.reclaimTerminalForDesktop('pty-1')).toBe(true)
     expect(ptySizes.get('pty-1')).toEqual({ cols: 132, rows: 44 })
   })
+
+  it('reclaim ignores the 2x1 grid a hidden desktop pane reported', async () => {
+    // Why: a display:none pane measures FitAddon's 2x1 floor; Take Back used it and left the PTY 2 cols wide.
+    const { runtime, ptySizes } = createRuntime(null)
+    runtime.recordRendererGeometry('pty-1', 180, 50)
+    await runtime.handleMobileSubscribe('pty-1', 'phone-A', { cols: 45, rows: 20 })
+    runtime.recordRendererGeometry('pty-1', 2, 1)
+    runtime.handleMobileUnsubscribe('pty-1', 'phone-A')
+
+    expect(await runtime.reclaimTerminalForDesktop('pty-1')).toBe(true)
+    expect(ptySizes.get('pty-1')).toEqual({ cols: 180, rows: 50 })
+  })
 })
 
 // #7588: null-viewport re-subscribe leaves an active subscriber under the held fit override.

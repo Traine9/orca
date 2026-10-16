@@ -4,11 +4,10 @@ import {
   flushDeferredPaneMetricOptions,
   hasDeferredPaneMetricOptions
 } from './pane-metric-options-deferral'
+import { isDesktopPaneFitGrid } from '../../../../shared/terminal/viewport/terminal-viewport'
 
 const MIN_PANE_FIT_WIDTH_PX = 48
 const MIN_PANE_FIT_HEIGHT_PX = 24
-const MIN_PANE_FIT_COLS = 8
-const MIN_PANE_FIT_ROWS = 4
 
 export function getProposedPaneDimensions(
   pane: ManagedPane
@@ -38,7 +37,7 @@ export function canMeasurePaneForFit(pane: ManagedPane): boolean {
     return false
   }
   // Worktree switches can briefly expose near-zero overlays; fitting would pin the PTY near two columns.
-  return dims.cols >= MIN_PANE_FIT_COLS && dims.rows >= MIN_PANE_FIT_ROWS
+  return isDesktopPaneFitGrid(dims.cols, dims.rows)
 }
 
 // Gate metrics by pixels only: the 50px divider minimum can stay below the grid-fit floor forever, stranding font updates. Near-zero hidden/transient boxes still defer; the grid floor applies to fitting.

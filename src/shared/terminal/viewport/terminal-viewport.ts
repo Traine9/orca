@@ -4,6 +4,14 @@ export const TERMINAL_VIEWPORT_MIN_ROWS = 8
 // Why: matches the terminal.subscribe/send viewport bound; a 120 cap left tall remote panes taller than their PTY (#27425).
 export const TERMINAL_VIEWPORT_MAX_ROWS = 500
 
+// Smallest grid a desktop pane fit produces; below it is a hidden pane's FitAddon floor (2x1).
+export const DESKTOP_PANE_FIT_MIN_COLS = 8
+export const DESKTOP_PANE_FIT_MIN_ROWS = 4
+
+export function isDesktopPaneFitGrid(cols: number, rows: number): boolean {
+  return cols >= DESKTOP_PANE_FIT_MIN_COLS && rows >= DESKTOP_PANE_FIT_MIN_ROWS
+}
+
 export function clampTerminalViewport(cols: number, rows: number): { cols: number; rows: number } {
   return {
     cols: Math.max(
