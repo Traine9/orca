@@ -2,6 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { fitDimensionsFromCell } from './terminal-grid-fit'
 
 describe('fitDimensionsFromCell', () => {
+  it('answers null for a landscape phone frame too short for an agent TUI', () => {
+    // A 46x35 portrait phone turned sideways: floor(780 / 7.667) = 101, floor(165 / 15) = 11.
+    expect(fitDimensionsFromCell(CELL_1X, 780, 165)).toBeNull()
+  })
+
+  it('fits a frame exactly MIN_FIT_ROWS tall', () => {
+    expect(fitDimensionsFromCell(CELL_1X, 427, 240)).toEqual({ cols: 55, rows: 16 })
+  })
+
   it('keeps an exact fit at a fractional pixel ratio whole', () => {
     // An exact device-pixel fit can divide to 49.999… after pixel-ratio conversion.
     const cell = { cellWidth: 18 / 2.75, cellHeight: 40 / 2.75 }
