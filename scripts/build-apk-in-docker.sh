@@ -5,7 +5,8 @@
 #   --prebuild: regenerate mobile/android with `expo prebuild` first (needed after an app.json change).
 # Needs: mobile/node_modules installed (pnpm install in mobile/), the Android SDK at
 # ${ANDROID_SDK_DIR:-$HOME/Android/Sdk} (mounted read-only). Gradle's cache lives in the
-# `orca-android-gradle` volume. Output: mobile/android/app/build/outputs/apk/release/app-release.apk
+# `orca-android-gradle` volume. APK_ARCH picks the ABI (default arm64-v8a, the phone; x86_64 for
+# an emulator test build). Output: mobile/android/app/build/outputs/apk/release/app-release.apk
 set -euo pipefail
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
@@ -23,7 +24,10 @@ docker build -q -t "$image" -f "$repo/scripts/docker/android-build.Dockerfile" "
 
 steps="cd \"$repo/mobile\""
 [[ "${1:-}" == "--prebuild" ]] && steps+=" && CI=1 npx expo prebuild --platform android --no-install"
-steps+=" && cd android && ./gradlew --no-daemon assembleRelease -PreactNativeArchitectures=arm64-v8a"
+steps+=" && cd android && ./gradlew --no-daemon assembleRelease -PreactNativeArchitectures=${APK_ARCH:-arm64-v8a}"
+
+# Why: a freshly created volume is root-owned; the build runs as the host user.
+docker run --rm -v orca-android-gradle:/gradle "$image" chown "$(id -u):$(id -g)" /gradle
 
 docker run --rm --user "$(id -u):$(id -g)" \
   -e HOME=/home/builder -e GRADLE_USER_HOME=/gradle \
