@@ -91,6 +91,7 @@ export abstract class OrcaRuntimeWithCaptureProviderTerminalBuffer extends OrcaR
       if (liveModeTracker.hasObservedAlternateScreenSwitch) {
         this.providerSnapshotsWithLiveModeTransition.add(reconciledSnapshot)
       }
+      this.providerOriginBufferSnapshots.add(reconciledSnapshot)
       return reconciledSnapshot
     } catch {
       return null
@@ -103,6 +104,11 @@ export abstract class OrcaRuntimeWithCaptureProviderTerminalBuffer extends OrcaR
         this.providerModeSnapshotScansByPtyId.delete(ptyId)
       }
     }
+  }
+
+  /** Whether `snapshot` is the object a provider (daemon) capture returned, not a main-side model. */
+  isProviderBufferSnapshot(snapshot: object | null | undefined): boolean {
+    return snapshot != null && this.providerOriginBufferSnapshots.has(snapshot)
   }
 
   protected async withVisibleSnapshotFallback(

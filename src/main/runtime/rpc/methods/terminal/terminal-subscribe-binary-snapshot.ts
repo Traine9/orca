@@ -85,8 +85,20 @@ async function publishSnapshot(
     return
   }
   // Missing model state, unlike blank text, means never-attached; null renderer answers fall back to mount wait even for stale host flags.
+  // Fork: a non-empty daemon capture taken after the fit is the screen a mounted pane would
+  // replay (the pane restores from that same daemon snapshot), so waiting up to 3 s for the
+  // desktop to mount a hidden tab only delays the phone. A mount requested before the PTY
+  // existed is still awaited: that pane is what spawns the session.
+  const providerHoldsScreen =
+    !rendererMountRequestedBeforePty &&
+    serialized?.fromProvider === true &&
+    typeof serialized.seq === 'number' &&
+    serialized.data.length > 0
   const needsRendererScreen =
-    seedsFromRenderer() && !hydratedFromRenderer && serialized?.source !== 'renderer'
+    seedsFromRenderer() &&
+    !hydratedFromRenderer &&
+    !providerHoldsScreen &&
+    serialized?.source !== 'renderer'
   let rendererReady =
     needsRendererScreen &&
     (await runtime.serializeRendererTerminalBuffer(ptyId, { scrollbackRows: 0 })) !== null

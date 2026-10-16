@@ -51,6 +51,8 @@ export type SerializedSnapshot = {
   alternateScreen?: boolean
   terminalOwner?: 'shell'
   lastTitle?: string
+  /** Fork: captured from the PTY provider (daemon), never sent on the wire. */
+  fromProvider?: boolean
 } | null
 
 export type TerminalViewportClient = {

@@ -138,6 +138,9 @@ export abstract class OrcaRuntimeWithFitOverrideListeners extends OrcaRuntimeWit
 
   protected providerSnapshotsWithLiveModeTransition = new WeakSet<PtyProviderBufferSnapshot>()
 
+  // Fork: provider (daemon) captures, so a phone subscribe can tell them from a partial main model.
+  protected providerOriginBufferSnapshots = new WeakSet<object>()
+
   /** Forgets the provider frame facts of a PTY whose screen restarts or ends. */
   protected forgetProviderVisibleState(ptyId: string): void {
     this.providerVisibleStateByPtyId.delete(ptyId)

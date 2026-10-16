@@ -41,7 +41,7 @@ async function screenOn(grid: { cols: number; rows: number }): Promise<string> {
   }
 }
 
-function setup(opts: { paneMounted: boolean; providerSnapshot?: boolean }) {
+function setup(opts: { paneMounted: boolean; providerSnapshot?: boolean; mountHangs?: boolean }) {
   const sizes = new Map([[PTY_ID, { ...DESKTOP }]])
   const serializeBuffer = vi.fn(async () =>
     opts.paneMounted ? { data: await screenOn(DESKTOP), ...DESKTOP } : null
@@ -58,7 +58,18 @@ function setup(opts: { paneMounted: boolean; providerSnapshot?: boolean }) {
     },
     hasRendererSerializer: () => opts.paneMounted,
     getRendererSerializerGeneration: () => 1,
-    waitForRendererSerializer: async () => false,
+    // A busy desktop that never finishes mounting the hidden tab runs the 3 s deadline down.
+    waitForRendererSerializer: (
+      _ptyId: string,
+      _afterGeneration?: number,
+      _timeoutMs?: number,
+      signal?: AbortSignal
+    ) =>
+      opts.mountHangs
+        ? new Promise<boolean>((resolve) =>
+            signal?.addEventListener('abort', () => resolve(false), { once: true })
+          )
+        : Promise.resolve(false),
     serializeBuffer,
     serializeProviderBuffer: async (ptyId: string) => {
       const grid = sizes.get(ptyId) ?? DESKTOP
@@ -180,5 +191,34 @@ describe('phone subscribe to an idle PTY whose hidden pane sits at desktop size'
       ...EXPECTED_PHONE_ROWS,
       '$ repainted'
     ])
+  })
+
+  it('serves an unmounted pane from the daemon snapshot without waiting for a desktop mount', async () => {
+    const { runtime, handle, sizes, requestMount } = setup({
+      paneMounted: false,
+      providerSnapshot: true,
+      mountHangs: true
+    })
+    // A reattached daemon PTY that printed nothing since the relaunch: no host model yet.
+    internals(runtime).providerSnapshotPreferredPtys.add(PTY_ID)
+    requestMount.mockReturnValue(true)
+    const startedAt = performance.now()
+
+    const snapshot = await firstSnapshot(runtime, handle)
+
+    expect(performance.now() - startedAt).toBeLessThan(1_000)
+    expect(requestMount).not.toHaveBeenCalled()
+    expect(sizes.get(PTY_ID)).toEqual(PHONE)
+    expect({ cols: snapshot.cols, rows: snapshot.rows }).toEqual(PHONE)
+    expect((await paintedRows(snapshot)).slice(0, 4)).toEqual(EXPECTED_PHONE_ROWS)
+  })
+
+  it('still waits for the mount when the daemon holds no screen for the PTY', async () => {
+    const { runtime, handle, requestMount } = setup({ paneMounted: false })
+    requestMount.mockReturnValue(true)
+
+    const subscription = subscribePhone(runtime, handle)
+    await vi.waitFor(() => expect(requestMount).toHaveBeenCalledTimes(1))
+    await subscription.close()
   })
 })

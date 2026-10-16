@@ -100,7 +100,9 @@ type SnapshotVariableMeta = Pick<
   | 'lastTitle'
 >
 
-type TerminalBufferSource = Pick<OrcaRuntimeService, 'serializeTerminalBuffer'>
+/** Narrowed to what this reads, so a caller can hand it a buffer source and nothing else. */
+type TerminalBufferSource = Pick<OrcaRuntimeService, 'serializeTerminalBuffer'> &
+  Partial<Pick<OrcaRuntimeService, 'isProviderBufferSnapshot'>>
 
 /** Carry publication fields with the cap: measuring snapshot text alone omits caller-owned metadata. */
 export type MobileSnapshotByteBudget = {
@@ -223,7 +225,16 @@ export async function serializeBudgetedMobileSnapshot(
     const data = (serialized.scrollbackAnsi ?? '') + serialized.data
     const overByteBudget = overMobileSnapshotBudget(data, serialized, snapshotByteBudget)
     if (!overByteBudget || rows === 0) {
-      return publishedCandidate(serialized, data, rows, overByteBudget, snapshotByteBudget)
+      const published = publishedCandidate(
+        serialized,
+        data,
+        rows,
+        overByteBudget,
+        snapshotByteBudget
+      )
+      return runtime.isProviderBufferSnapshot?.(serialized) === true
+        ? { ...published, fromProvider: true }
+        : published
     }
   }
   return null
