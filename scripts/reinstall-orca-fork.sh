@@ -2,7 +2,11 @@
 # Reinstall a locally built Orca fork .deb and relaunch the GUI; safe to run from an Orca terminal.
 #
 # Usage: scripts/reinstall-orca-fork.sh [--restart-daemon] [path/to/orca-ide_<ver>_amd64.deb]
+#        scripts/reinstall-orca-fork.sh --quit
 #   default .deb: the newest dist/orca-ide_*_amd64.deb next to this script's repo.
+#   --quit: only quit the Orca GUI (no install, no relaunch). Terminals keep running: the PTY
+#   daemon stays up while it has sessions (daemon-server.ts isIdle), and the next GUI start
+#   re-attaches them. Without --quit the GUI is quit the same way before the install.
 #
 # The PTY daemon (daemon-entry.js on ~/.config/orca/daemon/daemon-v<N>.sock) is detached
 # from the GUI and survives an app relaunch, so it keeps running the OLD version's code
@@ -68,6 +72,19 @@ stop_daemon() {
 if [[ "${1:-}" == "--finish-restart" ]]; then
   stop_daemon
   launch
+  exit 0
+fi
+
+# --quit: close the window, keep the terminals (the daemon and its panes are untouched).
+if [[ "${1:-}" == "--quit" ]]; then
+  pids="$(gui_pids)"
+  [[ -n "$pids" ]] || { echo "Orca GUI is not running"; exit 0; }
+  echo "quitting Orca GUI (pid $pids); terminals keep running in the PTY daemon"
+  kill -TERM $pids
+  wait_gone "Orca GUI" $pids || { echo "a quit-confirmation dialog? still running" >&2; exit 1; }
+  dpids="$(daemon_pids)"
+  [[ -n "$dpids" ]] && echo "PTY daemon still runs (pid $dpids); start /opt/Orca/orca-ide to re-attach" \
+    || echo "no PTY daemon found: no terminals were running"
   exit 0
 fi
 
