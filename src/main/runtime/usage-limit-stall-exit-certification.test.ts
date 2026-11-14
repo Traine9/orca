@@ -26,6 +26,8 @@ type SeededPtyRecord = {
   worktreeId: string
   tabId: string
   usageLimitStall: { reason: string; resetsAt: number }
+  tailBuffer: string[]
+  tailPartialLine: string
   connectionId?: string
 }
 
@@ -48,6 +50,9 @@ function runtimeWithStalledPane(options: { ssh?: boolean } = {}): {
     worktreeId: 'wt-1',
     tabId: 'tab-1',
     usageLimitStall: { reason: 'usage-limit-banner', resetsAt: Date.now() + 60_000 },
+    // The exit path reads the record's tail for the pane's last output.
+    tailBuffer: [],
+    tailPartialLine: '',
     ...(options.ssh === true ? { connectionId: 'ssh-conn-1' } : {})
   })
   const events: UsageLimitStallEvent[] = []
