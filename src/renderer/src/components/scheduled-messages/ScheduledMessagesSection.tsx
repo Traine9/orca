@@ -12,7 +12,7 @@ import { useAppStore } from '@/store'
 import { useWorktreeMap } from '@/store/slices/worktrees/listing/use-worktree-catalog'
 import { activateAndRevealWorktree } from '@/lib/workspace/activation/worktree-activation'
 import { translate } from '@/i18n/i18n'
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/class-names'
 import type {
   ScheduledMessage,
   ScheduledMessageTiming

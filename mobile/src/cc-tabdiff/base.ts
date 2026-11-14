@@ -1,4 +1,4 @@
-import { loadHostCatalog } from '../transport/hosts/host-store'
+import { loadHostCatalog } from '../host-catalog/host-store'
 import { loadCcTabdiffBaseUrl } from './preference'
 import { resolveCcTabdiffBaseUrl } from './url'
 

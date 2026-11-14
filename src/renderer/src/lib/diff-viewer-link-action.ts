@@ -33,11 +33,12 @@ export function buildDiffViewerLinkAction(
     label: translate('components.linkActions.diffViewer', 'Diff viewer'),
     // Why: the viewer lives on the user's own network, so it always opens in this
     // client's Orca browser, even when the clicked link came from a remote workspace.
-    run: () =>
+    run: () => {
       openHttpLink(buildDiffViewerUrl(baseUrl, url), {
         worktreeId,
         forceInApp: true,
         sourceOwner: { kind: 'local' }
       })
+    }
   }
 }

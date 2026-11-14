@@ -3,6 +3,10 @@ import { WORKSPACE_SESSION_DOMAINS } from './workspace-session-domains'
 /** The profile domains a mutation changed; its save writes only their rows. */
 export type ProfileSaveDomains = readonly string[]
 
+/** Scheduled messages are swept with their workspace's metadata, so prune and removal saves name them. */
+export const SCHEDULED_MESSAGES_DOMAIN = 'scheduledMessages'
+export const RATE_LIMIT_WATCHER_TABS_DOMAIN = 'rateLimitWatcherTabs'
+
 export const WORKTREE_METADATA_DOMAINS = [
   'worktreeMeta',
   'worktreeMetaByIdentity',
@@ -60,7 +64,8 @@ export const REMOVE_PROJECT_DOMAINS: readonly string[] = [
   ...WORKTREE_METADATA_DOMAINS,
   ...WORKSPACE_LINEAGE_DOMAINS,
   ...WORKSPACE_SESSION_DOMAINS,
-  'mobileClientTabSelectionsByDeviceId'
+  'mobileClientTabSelectionsByDeviceId',
+  SCHEDULED_MESSAGES_DOMAIN
 ]
 
 /** Removing a folder workspace drops its sessions, lineage and phone selections. */
@@ -75,7 +80,8 @@ export const FOLDER_WORKSPACE_REMOVAL_DOMAINS: readonly string[] = [
 /** Pruning missing worktrees drops their metadata and lineage. */
 export const WORKTREE_METADATA_PRUNE_DOMAINS: readonly string[] = [
   ...WORKTREE_METADATA_DOMAINS,
-  ...WORKSPACE_LINEAGE_DOMAINS
+  ...WORKSPACE_LINEAGE_DOMAINS,
+  SCHEDULED_MESSAGES_DOMAIN
 ]
 
 /** Removing worktree metadata also drops its lineage and saved session tabs. */

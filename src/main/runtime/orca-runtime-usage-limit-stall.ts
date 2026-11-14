@@ -1,6 +1,9 @@
 import { OrcaRuntimeWithResolveExitWaiters } from './terminal/wait/terminal-wait-settlements'
 import { notifyRuntimeListeners } from './events/runtime-listener-delivery'
-import { buildTerminalWaitText, type TerminalTailWaitState } from './terminal/wait/terminal-wait-tail-state'
+import {
+  buildTerminalWaitText,
+  type TerminalTailWaitState
+} from './terminal/wait/terminal-wait-tail-state'
 import { detectUsageLimitStall, extractUsageLimitResetAt } from './usage-limit-stall-detection'
 import { readUsageLimitMenu } from '../../shared/usage-limit-menu-selection'
 import { parsePaneKey } from '../../shared/workspace-layout/stable-pane-id'

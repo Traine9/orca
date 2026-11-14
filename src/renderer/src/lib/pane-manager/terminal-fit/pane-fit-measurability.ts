@@ -4,7 +4,7 @@ import {
   flushDeferredPaneMetricOptions,
   hasDeferredPaneMetricOptions
 } from './pane-metric-options-deferral'
-import { isDesktopPaneFitGrid } from '../../../../shared/terminal/viewport/terminal-viewport'
+import { isDesktopPaneFitGrid } from '../../../../../shared/terminal/viewport/terminal-viewport'
 
 const MIN_PANE_FIT_WIDTH_PX = 48
 const MIN_PANE_FIT_HEIGHT_PX = 24

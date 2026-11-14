@@ -2,7 +2,10 @@ import { expect, it, vi } from 'vitest'
 import * as Notifications from 'expo-notifications'
 import { loadHostCatalog } from '../../host-catalog/host-store'
 import { requestNotificationCatchup } from './push-dismissal-reconciliation'
-import { SEALED_VECTOR, sealedVectorHost } from '../payload-identity/push-sealed-payload.test-fixture'
+import {
+  SEALED_VECTOR,
+  sealedVectorHost
+} from '../payload-identity/push-sealed-payload.test-fixture'
 vi.mock('../../host-catalog/host-store', () => ({
   loadHostCatalog: vi.fn(),
   loadHosts: vi.fn(async () => [sealedVectorHost()])

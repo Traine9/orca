@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { fitDimensionsFromCell } from './terminal-grid-fit'
 
+const CELL_1X = { cellWidth: 23 / 3, cellHeight: 15 }
+
 describe('fitDimensionsFromCell', () => {
   it('answers null for a landscape phone frame too short for an agent TUI', () => {
     // A 46x35 portrait phone turned sideways: floor(780 / 7.667) = 101, floor(165 / 15) = 11.

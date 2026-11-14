@@ -5,7 +5,10 @@ import type {
   NotificationTrigger
 } from 'expo-notifications'
 import { startAndroidForegroundPushPresentation } from './android-foreground-push'
-import { SEALED_VECTOR, sealedVectorHost } from '../payload-identity/push-sealed-payload.test-fixture'
+import {
+  SEALED_VECTOR,
+  sealedVectorHost
+} from '../payload-identity/push-sealed-payload.test-fixture'
 
 const mocks = vi.hoisted(() => ({
   platform: { OS: 'android' },

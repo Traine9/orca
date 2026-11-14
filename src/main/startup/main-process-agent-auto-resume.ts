@@ -8,7 +8,7 @@ import { getEffectiveAgentHibernationIdleMs } from '../../shared/agent-hibernati
 import { chooseUsageLimitReset } from '../runtime/agent-pane-delivery'
 import { parsePaneKey } from '../../shared/workspace-layout/stable-pane-id'
 import type { OrcaRuntimeService } from '../runtime/orca-runtime'
-import type { RateLimitService } from '../rate-limits/service'
+import type { RateLimitService } from '../rate-limits/service/rate-limit-service'
 import { mainProcessState as state } from './main-process-state'
 import { focusWorktreeFromMain } from './main-window-actions'
 

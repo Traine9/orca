@@ -1,7 +1,8 @@
 import { MAX_RATE_LIMIT_WATCHER_TABS } from '../../../shared/rate-limit-watcher-types'
 import type { StoreRuntimeState } from './store-runtime-state'
-import type { WriteSchedulingOperations } from './write-scheduling'
-import { scheduleSave } from './write-scheduling'
+import type { WriteSchedulingOperations } from './profile-writing/write-scheduling'
+import { scheduleSave } from './profile-writing/write-scheduling'
+import { RATE_LIMIT_WATCHER_TABS_DOMAIN } from '../profile-save-domains'
 
 type RateLimitWatcherPersistenceRuntime = Pick<StoreRuntimeState, 'state'>
 
@@ -36,6 +37,6 @@ export class RateLimitWatcherPersistence {
     runtime.state.rateLimitWatcherTabs = enabled
       ? [...others, tabId].slice(-MAX_RATE_LIMIT_WATCHER_TABS)
       : others
-    scheduleSave(scheduling)
+    scheduleSave(scheduling, [RATE_LIMIT_WATCHER_TABS_DOMAIN])
   }
 }

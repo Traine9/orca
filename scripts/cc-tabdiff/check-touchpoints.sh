@@ -85,14 +85,14 @@ need src/renderer/src/components/tab-bar/SortableTabContextMenu.tsx "  tab: Pick
 need src/renderer/src/components/tab-bar/SortableTabContextMenu.tsx "</ContextMenuCheckboxItem>"
 need src/shared/workspace-layout/terminal-tab-types.ts "export type TerminalTab = {"
 need src/renderer/src/lib/browser/navigation/http-link-routing.ts \
-  "export function openHttpLink(url: string, opts: OpenHttpLinkOptions = {}): void"
+  "export function openHttpLink(url: string, opts: OpenHttpLinkOptions = {}): HttpLinkDestination"
 need src/renderer/src/lib/browser/navigation/http-link-destinations.ts "  forceInApp?: boolean"
 need src/renderer/src/lib/browser/navigation/http-link-routing.ts "export function registerHttpLinkStoreAccessor("
-need src/renderer/src/lib/desktop-window-chrome.ts "export function isPairedWebClientWindow(): boolean"
+need src/renderer/src/app-shell/chrome/desktop-window-chrome.ts "export function isPairedWebClientWindow(): boolean"
 need src/renderer/src/components/settings/form-controls/SettingsFormControls.tsx "export function SettingsSwitchRow("
 need src/renderer/src/components/settings/section-layout/SearchableSetting.tsx "export function SearchableSetting("
 need src/renderer/src/components/ui/context-menu.tsx "ContextMenuSeparator"
-need src/main/persistence/loading-store/profile-preferences.ts "  onSettingsChanged("
+need src/main/persistence/loading-store/profile-preferences/profile-preferences.ts "  onSettingsChanged("
 need src/main/startup/main-process-ready-runtime.ts \
   "export async function initializeReadyRuntimeServices(): Promise<void>"
 need src/main/startup/testing/e2e-config.ts "export function getMainE2EConfig(): E2EConfig"

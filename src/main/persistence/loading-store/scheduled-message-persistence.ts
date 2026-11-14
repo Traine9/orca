@@ -1,7 +1,8 @@
 import type { ScheduledMessage } from '../../../shared/scheduled-message-types'
 import type { StoreRuntimeState } from './store-runtime-state'
-import type { WriteSchedulingOperations } from './write-scheduling'
-import { scheduleSave } from './write-scheduling'
+import type { WriteSchedulingOperations } from './profile-writing/write-scheduling'
+import { scheduleSave } from './profile-writing/write-scheduling'
+import { SCHEDULED_MESSAGES_DOMAIN } from '../profile-save-domains'
 
 type ScheduledMessagePersistenceRuntime = Pick<StoreRuntimeState, 'state'>
 
@@ -32,7 +33,7 @@ export class ScheduledMessagePersistence {
       index === -1
         ? [...existing, message]
         : [...existing.slice(0, index), message, ...existing.slice(index + 1)]
-    scheduleSave(scheduling)
+    scheduleSave(scheduling, [SCHEDULED_MESSAGES_DOMAIN])
   }
 
   deleteScheduledMessage(messageId: string): void {
@@ -43,6 +44,6 @@ export class ScheduledMessagePersistence {
       return
     }
     runtime.state.scheduledMessages = remaining
-    scheduleSave(scheduling)
+    scheduleSave(scheduling, [SCHEDULED_MESSAGES_DOMAIN])
   }
 }

@@ -106,7 +106,10 @@ export const PERSISTED_STATE_DISPOSITIONS = {
   featureInteractionTelemetryBuckets: notApplicableDisposition(62),
   codexResetCreditAttemptLedger: notApplicableDisposition(62),
   chatUiLaunchTipAudience: notApplicableDisposition(62),
-  rateLimitWatcherTabs: notApplicableDisposition(62, 'Armed watcher entries are tab ids, not paths.'),
+  rateLimitWatcherTabs: notApplicableDisposition(
+    62,
+    'Armed watcher entries are tab ids, not paths.'
+  ),
   scheduledMessages: notApplicableDisposition(
     62,
     'A desktop-only queue: a row whose workspace moved fails as no-pane instead of following it.'

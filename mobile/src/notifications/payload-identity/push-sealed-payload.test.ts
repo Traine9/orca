@@ -3,7 +3,7 @@ import { SEALED_VECTOR, sealedVectorHost } from './push-sealed-payload.test-fixt
 import { openSealedPushData, openSealedPushEnvelope } from './push-sealed-payload'
 
 const hosts = vi.hoisted((): { value: unknown[] } => ({ value: [] }))
-vi.mock('../transport/hosts/host-store', () => ({ loadHosts: vi.fn(async () => hosts.value) }))
+vi.mock('../../host-catalog/host-store', () => ({ loadHosts: vi.fn(async () => hosts.value) }))
 
 beforeEach(() => {
   hosts.value = [sealedVectorHost()]
@@ -47,7 +47,7 @@ it('strips an envelope it cannot open instead of passing ciphertext on as a pane
 })
 
 it('keeps the envelope for a later read when the host store fails', async () => {
-  const { loadHosts } = await import('../transport/hosts/host-store')
+  const { loadHosts } = await import('../../host-catalog/host-store')
   vi.mocked(loadHosts).mockRejectedValueOnce(new Error('keystore locked'))
   const opened = await openSealedPushData(SEALED_VECTOR.fcmData)
   expect(opened).toEqual({ data: SEALED_VECTOR.fcmData, opened: false })

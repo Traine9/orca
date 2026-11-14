@@ -157,7 +157,7 @@ describe('profile project transfer', () => {
       createdAt: 1,
       status: 'pending'
     })
-    writeProfileState(
+    writeProfileStateDatabase(
       'personal',
       makeState({
         repos: [makeRepo(), makeRepo({ id: 'repo-2', path: '/workspace/other' })],
@@ -167,7 +167,7 @@ describe('profile project transfer', () => {
         ]
       })
     )
-    writeProfileState('work', makeState())
+    writeProfileStateDatabase('work', makeState())
 
     const { transferOrcaProfileProject } = await loadTransferModule()
     transferOrcaProfileProject(
@@ -175,10 +175,10 @@ describe('profile project transfer', () => {
       testState.dir
     )
 
-    const source = readProfileState('personal')
+    const source = readProfileStateDatabase('personal')
     expect(source.scheduledMessages?.map((entry) => entry.id)).toEqual(['msg-staying'])
     // A move does not carry them: the row is addressed to a pane in the profile it was queued in.
-    expect(readProfileState('work').scheduledMessages ?? []).toEqual([])
+    expect(readProfileStateDatabase('work').scheduledMessages ?? []).toEqual([])
   })
 
   it('fences a SQLite transfer write against the revision that was read', async () => {

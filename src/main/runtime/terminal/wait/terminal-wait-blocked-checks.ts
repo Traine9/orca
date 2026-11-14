@@ -13,7 +13,10 @@ import {
   tailGainedNewerUsageLimitStall
 } from './terminal-wait-tail-state'
 import { ownRetainedString } from '../../../../shared/own-retained-string'
-import { isLiveUsageLimitMenu, readUsageLimitMenu } from '../../../../shared/usage-limit-menu-selection'
+import {
+  isLiveUsageLimitMenu,
+  readUsageLimitMenu
+} from '../../../../shared/usage-limit-menu-selection'
 import type { ProcessedAgentStatusChunk } from '../../../../shared/agent-status/transport/agent-status-osc'
 import { createTerminalAgentStatusProcessor } from '../../../../shared/program-status/terminal-agent-status-processor'
 import type { RuntimePtyTitleTrackerEntry } from '../records/runtime-terminal-state-records'

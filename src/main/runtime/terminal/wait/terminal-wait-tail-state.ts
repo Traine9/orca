@@ -7,7 +7,10 @@ import {
 } from '../output/tail/terminal-tail-sentinel-index'
 import { findActionableTerminalWaitBlockedSignal } from './terminal-wait-detection'
 import { terminalWaitBlockedSentinelRe } from '../../agent-state-rules/blocked-text-layer'
-import { detectUsageLimitStall, type UsageLimitStallSignal } from '../../usage-limit-stall-detection'
+import {
+  detectUsageLimitStall,
+  type UsageLimitStallSignal
+} from '../../usage-limit-stall-detection'
 
 export function buildTerminalWaitText(
   lines: string[],

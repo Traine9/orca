@@ -20,7 +20,9 @@ vi.mock('react-native', () => ({
   }
 }))
 vi.mock('../../host-catalog/host-store', () => ({ loadHosts: vi.fn(async () => state.hosts) }))
-vi.mock('../foreground-delivery/push-receive', () => ({ canPresentForegroundPush: vi.fn(async () => true) }))
+vi.mock('../foreground-delivery/push-receive', () => ({
+  canPresentForegroundPush: vi.fn(async () => true)
+}))
 vi.mock('expo-task-manager', () => ({
   defineTask: (name: string, task: typeof state.task) => {
     state.taskName = name
@@ -44,7 +46,10 @@ vi.mock('./push-tray-dismissal', async (importOriginal) => {
 import * as Notifications from 'expo-notifications'
 import { dismissPresentedPushNotification } from './push-tray-dismissal'
 import './push-background-dismissal'
-import { SEALED_VECTOR, sealedVectorHost } from '../payload-identity/push-sealed-payload.test-fixture'
+import {
+  SEALED_VECTOR,
+  sealedVectorHost
+} from '../payload-identity/push-sealed-payload.test-fixture'
 
 it('does not turn ordinary alerts into dismissals', async () => {
   vi.mocked(dismissPresentedPushNotification).mockClear()

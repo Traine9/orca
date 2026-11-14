@@ -9,7 +9,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent
 } from 'react-native'
 import { WebView, type WebViewNavigation } from 'react-native-webview'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -180,7 +182,9 @@ export default function DiffViewerScreen() {
         pullToRefreshEnabled
         onNavigationStateChange={onNavigationStateChange}
         onLoadEnd={() => setRefreshing(false)}
-        onScroll={(e) => setAtTop(e.nativeEvent.contentOffset.y <= 0)}
+        onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) =>
+          setAtTop(e.nativeEvent.contentOffset.y <= 0)
+        }
         onError={(e) => {
           setRefreshing(false)
           setLoadError(e.nativeEvent.description || 'Connection failed')
